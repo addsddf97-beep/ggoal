@@ -16,9 +16,15 @@
 OPENAI_API_KEY=
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 OPENAI_IMAGE_MODEL=gpt-image-1.5
-OPENAI_IMAGE_CONCURRENCY=3
+OPENAI_IMAGE_QUALITY=low
+OPENAI_IMAGE_CONCURRENCY=4
 OPENAI_TTS_MODEL=gpt-4o-mini-tts
 OPENAI_TTS_VOICE=verse
+OPENAI_TTS_CONCURRENCY=3
+VIDEO_SEGMENT_CONCURRENCY=2
+VIDEO_WIDTH=720
+VIDEO_HEIGHT=1280
+VIDEO_FPS=24
 USE_MOCK_AI=false
 WEB_ORIGIN=http://localhost:3000
 ```
@@ -29,7 +35,7 @@ WEB_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 ```
 
-API 키 없이 화면 흐름만 테스트하려면 `USE_MOCK_AI=true`로 실행할 수 있습니다. 이미지 생성이 느리거나 rate limit이 생기면 `OPENAI_IMAGE_CONCURRENCY`를 `1`에서 `5` 사이로 조절하세요.
+API 키 없이 화면 흐름만 테스트하려면 `USE_MOCK_AI=true`로 실행할 수 있습니다. 이미지 생성이 느리거나 rate limit이 생기면 `OPENAI_IMAGE_CONCURRENCY`를 `1`에서 `5` 사이로 조절하세요. 영상 합성이 느리면 `OPENAI_TTS_CONCURRENCY`와 `VIDEO_SEGMENT_CONCURRENCY`를 조절할 수 있고, 기본 영상 출력은 속도를 위해 `720x1280`/`24fps`입니다.
 
 ## 실행
 

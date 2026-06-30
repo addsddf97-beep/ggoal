@@ -152,17 +152,17 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="grid gap-5 border-b border-ink/10 pb-5 lg:grid-cols-[1fr_360px] lg:items-end">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4 lg:px-6">
+        <header className="grid gap-3 border-b border-ink/10 pb-3 lg:grid-cols-[1fr_260px] lg:items-end">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-ink/10 bg-white px-3 py-2 text-sm font-black text-ink">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-ink/10 bg-white px-2.5 py-1.5 text-xs font-black text-ink">
               <Sparkles className="h-4 w-4 text-punch" aria-hidden />
               골때리는 건강 가이드 스튜디오
             </div>
-            <h1 className="max-w-3xl text-4xl font-black leading-tight text-ink md:text-5xl">
+            <h1 className="max-w-3xl text-2xl font-black leading-tight text-ink md:text-3xl">
               음식 캐릭터 상황극 숏츠 제작
             </h1>
-            <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-ink/70">
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-ink/70">
               입력부터 주제 후보, 씬별 대본, 캐릭터 이미지까지 한 번에 만드는 제작 워크플로우입니다.
             </p>
           </div>
@@ -170,7 +170,7 @@ export default function Home() {
           <img
             src="/brand/studio-preview.svg"
             alt="음식 캐릭터 스튜디오 미리보기"
-            className="hidden h-44 w-full rounded-lg border border-ink/10 object-cover shadow-crisp lg:block"
+            className="hidden h-28 w-full rounded-lg border border-ink/10 object-cover shadow-crisp lg:block"
           />
         </header>
 
@@ -182,9 +182,9 @@ export default function Home() {
           </div>
         ) : null}
 
-        <section className="grid gap-5 lg:grid-cols-[360px_1fr]">
-          <aside className="h-fit rounded-lg border border-ink/10 bg-white p-4 shadow-crisp">
-            <form onSubmit={handleTopics} className="space-y-4">
+        <section className="grid gap-4 lg:grid-cols-[300px_1fr]">
+          <aside className="h-fit rounded-lg border border-ink/10 bg-white p-3 shadow-crisp">
+            <form onSubmit={handleTopics} className="space-y-3">
               <label htmlFor="idea" className="block text-sm font-black text-ink">
                 음식/아이디어 입력
               </label>
@@ -193,7 +193,7 @@ export default function Home() {
                 value={idea}
                 onChange={(event) => setIdea(event.target.value)}
                 placeholder="예: 라면, 치킨, 콜라, 떡볶이, 편의점 도시락"
-                className="min-h-32 w-full resize-none rounded-lg border border-ink/15 bg-paper px-4 py-3 text-base font-semibold leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-ink focus:bg-white"
+                className="min-h-24 w-full resize-none rounded-lg border border-ink/15 bg-paper px-3 py-2.5 text-sm font-semibold leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-ink focus:bg-white"
               />
 
               <div className="flex flex-wrap gap-2">
@@ -212,7 +212,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading !== null}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 font-black text-white transition hover:bg-punch disabled:bg-ink/35"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-black text-white transition hover:bg-punch disabled:bg-ink/35"
               >
                 {loading === "topics" ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -223,7 +223,7 @@ export default function Home() {
               </button>
             </form>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setStep(Math.max(1, step - 1))}
@@ -245,12 +245,12 @@ export default function Home() {
             </div>
           </aside>
 
-          <div className="min-w-0 space-y-5">
-            <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-crisp">
+          <div className="min-w-0 space-y-4">
+            <section className="rounded-lg border border-ink/10 bg-white p-3 shadow-crisp">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-punch">Step 2</p>
-                  <h2 className="text-2xl font-black text-ink">숏츠 주제 후보</h2>
+                  <h2 className="text-xl font-black text-ink">숏츠 주제 후보</h2>
                 </div>
                 <button
                   type="button"
@@ -268,7 +268,7 @@ export default function Home() {
               </div>
 
               {topics.length > 0 ? (
-                <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                <div className="mt-3 grid gap-3 xl:grid-cols-2">
                   {topics.map((topic) => (
                     <TopicCard
                       key={topic.id}
@@ -279,17 +279,17 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-10 text-center text-sm font-bold text-ink/50">
+                <div className="mt-3 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-8 text-center text-sm font-bold text-ink/50">
                   주제 후보가 여기에 표시됩니다.
                 </div>
               )}
             </section>
 
-            <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-crisp">
+            <section className="rounded-lg border border-ink/10 bg-white p-3 shadow-crisp">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-punch">Step 3</p>
-                  <h2 className="text-2xl font-black text-ink">음식 캐릭터 상황극 스크립트</h2>
+                  <h2 className="text-xl font-black text-ink">음식 캐릭터 상황극 스크립트</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {script ? <CopyButton label="전체 대본" value={scriptClipboard} compact /> : null}
@@ -311,20 +311,20 @@ export default function Home() {
               </div>
 
               {script ? (
-                <div className="mt-4 space-y-4">
-                  <div className="border-b border-ink/10 pb-4">
-                    <h3 className="text-xl font-black text-ink">{script.title}</h3>
+                <div className="mt-3 space-y-3">
+                  <div className="border-b border-ink/10 pb-3">
+                    <h3 className="text-lg font-black text-ink">{script.title}</h3>
                     <p className="mt-1 text-sm font-bold text-punch">{script.hook}</p>
                     <p className="mt-2 text-sm font-semibold text-ink/60">총 길이: {script.totalDuration}</p>
                   </div>
 
                   <div className="grid gap-3">
                     {script.scenes.map((scene) => (
-                      <article key={scene.sceneIndex} className="rounded-lg border border-ink/10 bg-paper p-4">
+                      <article key={scene.sceneIndex} className="rounded-lg border border-ink/10 bg-paper p-3">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-xs font-black text-punch">Scene {scene.sceneIndex} · {scene.duration}</p>
-                            <h4 className="text-lg font-black text-ink">{scene.sceneTitle}</h4>
+                            <h4 className="text-base font-black text-ink">{scene.sceneTitle}</h4>
                           </div>
                           <span className="rounded-md bg-citrus/70 px-2.5 py-1 text-xs font-black text-ink">
                             {scene.voiceTone}
@@ -353,17 +353,17 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-10 text-center text-sm font-bold text-ink/50">
+                <div className="mt-3 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-8 text-center text-sm font-bold text-ink/50">
                   선택한 주제로 생성된 씬별 스크립트가 여기에 표시됩니다.
                 </div>
               )}
             </section>
 
-            <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-crisp">
+            <section className="rounded-lg border border-ink/10 bg-white p-3 shadow-crisp">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-punch">Step 4</p>
-                  <h2 className="text-2xl font-black text-ink">씬별 이미지 생성 결과</h2>
+                  <h2 className="text-xl font-black text-ink">씬별 이미지 생성 결과</h2>
                 </div>
                 {images ? (
                   <button
@@ -391,13 +391,13 @@ export default function Home() {
               </div>
 
               {images ? (
-                <div className="mt-4 space-y-4">
+                <div className="mt-3 space-y-3">
                   {images.scenes.map((scene) => (
                     <SceneResultCard key={scene.sceneIndex} scene={scene} />
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-10 text-center text-sm font-bold text-ink/50">
+                <div className="mt-3 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-8 text-center text-sm font-bold text-ink/50">
                   생성된 음식 캐릭터 이미지와 결과 카드가 여기에 표시됩니다.
                 </div>
               )}
@@ -419,11 +419,11 @@ export default function Home() {
               ) : null}
             </section>
 
-            <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-crisp">
+            <section className="rounded-lg border border-ink/10 bg-white p-3 shadow-crisp">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-punch">Step 5</p>
-                  <h2 className="text-2xl font-black text-ink">TTS·자막·영상 합성 결과</h2>
+                  <h2 className="text-xl font-black text-ink">TTS·자막·영상 합성 결과</h2>
                 </div>
                 {video ? (
                   <button
@@ -438,7 +438,7 @@ export default function Home() {
               </div>
 
               {video ? (
-                <div className="mt-4 grid gap-5 lg:grid-cols-[320px_1fr]">
+                <div className="mt-3 grid gap-4 lg:grid-cols-[260px_1fr]">
                   <div className="overflow-hidden rounded-lg border border-ink/10 bg-ink">
                     <video
                       controls
@@ -484,8 +484,8 @@ export default function Home() {
                       </a>
                     </div>
 
-                    <div className="rounded-lg border border-ink/10 bg-paper p-4">
-                      <h3 className="text-lg font-black text-ink">씬별 음성 클립</h3>
+                    <div className="rounded-lg border border-ink/10 bg-paper p-3">
+                      <h3 className="text-base font-black text-ink">씬별 음성 클립</h3>
                       <div className="mt-3 grid gap-3">
                         {video.scenes.map((scene) => (
                           <article key={scene.sceneIndex} className="rounded-md border border-ink/10 bg-white p-3">
@@ -510,7 +510,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-10 text-center text-sm font-bold text-ink/50">
+                <div className="mt-3 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-8 text-center text-sm font-bold text-ink/50">
                   씬별 이미지가 준비되면 TTS, 자막, MP4 숏츠 영상이 여기에 표시됩니다.
                 </div>
               )}

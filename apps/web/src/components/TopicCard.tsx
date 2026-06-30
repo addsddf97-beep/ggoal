@@ -14,7 +14,7 @@ export function TopicCard({ topic, selected, onSelect }: TopicCardProps) {
     <button
       type="button"
       onClick={onSelect}
-      className={`h-full rounded-lg border bg-white p-4 text-left shadow-crisp transition hover:-translate-y-0.5 hover:border-ink ${
+      className={`h-full rounded-lg border bg-white p-3 text-left shadow-crisp transition hover:-translate-y-0.5 hover:border-ink ${
         selected ? "border-ink ring-2 ring-citrus" : "border-ink/10"
       }`}
     >

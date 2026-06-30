@@ -23,7 +23,7 @@ export function SceneResultCard({ scene }: SceneResultCardProps) {
   ].join("\n");
 
   return (
-    <article className="grid gap-5 rounded-lg border border-ink/10 bg-white p-4 shadow-crisp lg:grid-cols-[260px_1fr]">
+    <article className="grid gap-4 rounded-lg border border-ink/10 bg-white p-3 shadow-crisp lg:grid-cols-[190px_1fr]">
       <div className="overflow-hidden rounded-lg border border-ink/10 bg-paper">
         <img src={imageUrl} alt={`${scene.sceneTitle} 이미지`} className="aspect-[2/3] w-full object-cover" />
       </div>
@@ -31,8 +31,8 @@ export function SceneResultCard({ scene }: SceneResultCardProps) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-black text-punch">Scene {scene.sceneIndex}</p>
-            <h3 className="text-xl font-black leading-tight text-ink">{scene.sceneTitle}</h3>
+            <p className="text-xs font-black text-punch">Scene {scene.sceneIndex}</p>
+            <h3 className="text-lg font-black leading-tight text-ink">{scene.sceneTitle}</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             <CopyButton label="씬 복사" value={copyValue} compact />
@@ -48,7 +48,7 @@ export function SceneResultCard({ scene }: SceneResultCardProps) {
           </div>
         </div>
 
-        <dl className="mt-4 grid gap-3 text-sm text-ink/75 md:grid-cols-2">
+        <dl className="mt-3 grid gap-3 text-sm text-ink/75 md:grid-cols-2">
           <div>
             <dt className="font-bold text-ink">대사</dt>
             <dd>{scene.dialogue}</dd>

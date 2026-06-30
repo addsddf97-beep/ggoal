@@ -8,6 +8,7 @@ import type { SceneImage } from "@food-shorts/shared";
 import { createJobId, getGeneratedFilePath, saveGeneratedArtifact } from "@/lib/storage";
 import { getServerConfig } from "@/lib/env";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
+import { mapWithConcurrency } from "@/lib/concurrency";
 
 const require = createRequire(import.meta.url);
 
@@ -37,17 +38,11 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
 
   for (const scene of scenes) {
     const durationSeconds = Math.max(parseDurationSeconds(scene.duration), estimateSpeechSeconds(scene.dialogue));
-    const imageFilePath = await resolveSceneImage(scene, workDir);
+    const imageFilePath = path.join(workDir, `scene-${scene.sceneIndex}.png`);
     const audioFilePath = path.join(workDir, `scene-${scene.sceneIndex}.mp3`);
     const segmentFilePath = path.join(workDir, `segment-${scene.sceneIndex}.mp4`);
     const subtitleStart = formatSrtTime(cursor);
     const subtitleEnd = formatSrtTime(cursor + durationSeconds);
-
-    if (config.useMockAi) {
-      await createSilentAudio(audioFilePath, durationSeconds);
-    } else {
-      await createSceneSpeech(scene, audioFilePath, options.voice ?? config.ttsVoice);
-    }
 
     preparedScenes.push({
       ...scene,
@@ -62,19 +57,44 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     cursor += durationSeconds;
   }
 
+  await mapWithConcurrency(preparedScenes, config.ttsConcurrency, async (scene) => {
+    await Promise.all([
+      resolveSceneImage(scene, workDir),
+      config.useMockAi
+        ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
+        : createSceneSpeech(scene, scene.audioFilePath, options.voice ?? config.ttsVoice)
+    ]);
+  });
+
   const srt = createSrt(preparedScenes);
-  const ass = createAss(preparedScenes);
+  const ass = createAss(preparedScenes, config.videoWidth, config.videoHeight);
   const srtFilePath = path.join(workDir, "captions.srt");
   const assFilePath = path.join(workDir, "captions.ass");
 
   await writeFile(srtFilePath, srt);
   await writeFile(assFilePath, ass);
 
-  for (const scene of preparedScenes) {
+  const sceneAssFiles = await Promise.all(preparedScenes.map(async (scene) => {
     const sceneAssPath = path.join(workDir, `scene-${scene.sceneIndex}.ass`);
-    await writeFile(sceneAssPath, createAss([{ ...scene, subtitleStart: "0:00:00.00", subtitleEnd: formatAssTime(scene.durationSeconds) }]));
-    await createVideoSegment(scene, sceneAssPath, options.burnSubtitles);
-  }
+    await writeFile(
+      sceneAssPath,
+      createAss(
+        [{ ...scene, subtitleStart: "0:00:00.00", subtitleEnd: formatAssTime(scene.durationSeconds) }],
+        config.videoWidth,
+        config.videoHeight
+      )
+    );
+
+    return { scene, sceneAssPath };
+  }));
+
+  await mapWithConcurrency(sceneAssFiles, config.videoSegmentConcurrency, async ({ scene, sceneAssPath }) => {
+    await createVideoSegment(scene, sceneAssPath, options.burnSubtitles, {
+      fps: config.videoFps,
+      height: config.videoHeight,
+      width: config.videoWidth
+    });
+  });
 
   const concatFilePath = path.join(workDir, "segments.txt");
   await writeFile(
@@ -136,7 +156,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
       const sceneAudio = storedSceneAudio.find((item) => item.sceneIndex === scene.sceneIndex);
 
       return {
-      ...scene,
+        ...scene,
         imageFilePath: undefined,
         audioFilePath: undefined,
         segmentFilePath: undefined,
@@ -178,10 +198,15 @@ async function createSilentAudio(audioFilePath: string, durationSeconds: number)
   ]);
 }
 
-async function createVideoSegment(scene: PreparedScene, assPath: string, burnSubtitles: boolean) {
+async function createVideoSegment(
+  scene: PreparedScene,
+  assPath: string,
+  burnSubtitles: boolean,
+  video: { fps: number; height: number; width: number }
+) {
   const filters = [
-    "scale=1080:1920:force_original_aspect_ratio=increase",
-    "crop=1080:1920",
+    `scale=${video.width}:${video.height}:force_original_aspect_ratio=increase`,
+    `crop=${video.width}:${video.height}`,
     "setsar=1",
     burnSubtitles ? `subtitles=${escapeFilterPath(assPath)}` : null
   ].filter(Boolean);
@@ -191,7 +216,7 @@ async function createVideoSegment(scene: PreparedScene, assPath: string, burnSub
     "-loop",
     "1",
     "-framerate",
-    "30",
+    String(video.fps),
     "-t",
     String(scene.durationSeconds),
     "-i",
@@ -204,6 +229,8 @@ async function createVideoSegment(scene: PreparedScene, assPath: string, burnSub
     "libx264",
     "-preset",
     "veryfast",
+    "-crf",
+    "28",
     "-pix_fmt",
     "yuv420p",
     "-c:a",
@@ -328,7 +355,16 @@ function createSrt(scenes: PreparedScene[]) {
     .join("\n\n");
 }
 
-function createAss(scenes: Array<Pick<PreparedScene, "subtitle" | "dialogue" | "subtitleStart" | "subtitleEnd">>) {
+function createAss(
+  scenes: Array<Pick<PreparedScene, "subtitle" | "dialogue" | "subtitleStart" | "subtitleEnd">>,
+  width: number,
+  height: number
+) {
+  const fontSize = Math.round(height * 0.031);
+  const outline = Math.max(3, Math.round(height * 0.0026));
+  const shadow = Math.max(1, Math.round(height * 0.001));
+  const horizontalMargin = Math.round(width * 0.065);
+  const bottomMargin = Math.round(height * 0.1);
   const events = scenes
     .map((scene) => {
       const text = `${escapeAssText(scene.subtitle)}\\N${escapeAssText(scene.dialogue)}`;
@@ -338,12 +374,12 @@ function createAss(scenes: Array<Pick<PreparedScene, "subtitle" | "dialogue" | "
 
   return `[Script Info]
 ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: ${width}
+PlayResY: ${height}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,58,&H00FFFFFF,&H000000FF,&H00141414,&H99000000,-1,0,0,0,100,100,0,0,1,5,2,2,70,70,190,1
+Style: Default,Arial,${fontSize},&H00FFFFFF,&H000000FF,&H00141414,&H99000000,-1,0,0,0,100,100,0,0,1,${outline},${shadow},2,${horizontalMargin},${horizontalMargin},${bottomMargin},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

@@ -14,7 +14,7 @@ type StepRailProps = {
 
 export function StepRail({ currentStep }: StepRailProps) {
   return (
-    <nav className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="제작 단계">
+    <nav className="grid grid-cols-5 gap-2" aria-label="제작 단계">
       {steps.map((step) => {
         const Icon = step.icon;
         const active = currentStep === step.id;
@@ -23,7 +23,8 @@ export function StepRail({ currentStep }: StepRailProps) {
         return (
           <div
             key={step.id}
-            className={`flex h-14 items-center gap-2 rounded-lg border px-3 text-sm font-bold ${
+            title={step.label}
+            className={`flex h-10 items-center justify-center gap-2 rounded-lg border px-2.5 text-xs font-bold sm:justify-start ${
               active
                 ? "border-ink bg-ink text-white"
                 : done
@@ -32,7 +33,7 @@ export function StepRail({ currentStep }: StepRailProps) {
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate">{step.label}</span>
+            <span className="hidden min-w-0 truncate sm:inline">{step.label}</span>
           </div>
         );
       })}

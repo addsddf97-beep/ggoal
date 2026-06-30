@@ -3,6 +3,7 @@ import { createJobId, saveGeneratedImage } from "@/lib/storage";
 import { getServerConfig } from "@/lib/env";
 import { createMockPng } from "@/lib/ai/mock";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
+import { mapWithConcurrency } from "@/lib/concurrency";
 
 export async function generateImagesForScenes(scenes: SceneScript[], requestedJobId?: string) {
   const config = getServerConfig();
@@ -34,6 +35,7 @@ async function createSceneImage(scene: SceneScript) {
       "Do not render readable text, captions, logos, watermarks, or UI.",
       "Keep the bottom 20 percent visually clean for Korean subtitles added later."
     ].join(" "),
+    quality: config.imageQuality,
     size: "1024x1536",
     n: 1
   } as never);
@@ -55,26 +57,4 @@ async function createSceneImage(scene: SceneScript) {
   }
 
   throw new Error("OpenAI 이미지 응답이 비어 있습니다.");
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  items: TInput[],
-  concurrency: number,
-  mapper: (item: TInput, index: number) => Promise<TOutput>
-) {
-  const results = new Array<TOutput>(items.length);
-  let nextIndex = 0;
-  const workerCount = Math.min(concurrency, items.length);
-
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (nextIndex < items.length) {
-        const currentIndex = nextIndex;
-        nextIndex += 1;
-        results[currentIndex] = await mapper(items[currentIndex], currentIndex);
-      }
-    })
-  );
-
-  return results;
 }
