@@ -54,6 +54,10 @@ npm run dev
 - `POST /api/images`: 씬별 캐릭터 이미지 생성 후 `apps/api/public/generated/{jobId}`에 저장
 - `POST /api/video`: 씬별 이미지, 대사, 자막을 TTS 오디오와 MP4 숏츠 영상으로 합성
 
+## 문제 해결
+
+- `429 You exceeded your current quota`: OpenAI API 계정의 크레딧, 결제수단, 또는 월 사용 한도를 확인해야 합니다. 코드 문제가 아니라 OpenAI Billing/Usage 제한입니다. 개발이나 시연 흐름만 확인하려면 `USE_MOCK_AI=true`로 전환하면 외부 API 호출 없이 mock 응답으로 테스트할 수 있습니다.
+
 ## MVP 범위
 
 로그인, 결제, DB는 제외했습니다. 생성 파일은 로컬에서는 `apps/api/public/generated`, Vercel에서는 임시 런타임 저장소에 저장됩니다. 운영용 장기 보관은 S3, Supabase Storage, Vercel Blob 같은 영구 스토리지로 바꾸기 쉽게 저장 로직을 분리했습니다.
