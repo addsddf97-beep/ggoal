@@ -1,0 +1,23 @@
+{
+  "name": "golddaegeon-health-guide-studio",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c red,cyan \"npm run dev --workspace @food-shorts/api\" \"npm run dev --workspace @food-shorts/web\"",
+    "dev:api": "npm run dev --workspace @food-shorts/api",
+    "dev:web": "npm run dev --workspace @food-shorts/web",
+    "build": "npm run build --workspace @food-shorts/api && npm run build --workspace @food-shorts/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}
