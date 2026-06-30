@@ -2,11 +2,14 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import ffmpegPath from "ffmpeg-static";
 import type { SceneImage } from "@food-shorts/shared";
 import { createJobId, getGeneratedFilePath, saveGeneratedArtifact } from "@/lib/storage";
 import { getServerConfig } from "@/lib/env";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
+
+const require = createRequire(import.meta.url);
 
 type GenerateShortsVideoOptions = {
   jobId?: string;
@@ -278,6 +281,7 @@ async function resolveFfmpegPath() {
   const candidates = [
     process.env.FFMPEG_PATH,
     ffmpegPath,
+    resolvePackageFfmpegPath(),
     path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg"),
     path.join(process.cwd(), "..", "..", "node_modules", "ffmpeg-static", "ffmpeg")
   ].filter(Boolean) as string[];
@@ -292,6 +296,14 @@ async function resolveFfmpegPath() {
   }
 
   return null;
+}
+
+function resolvePackageFfmpegPath() {
+  try {
+    return path.join(path.dirname(require.resolve("ffmpeg-static")), "ffmpeg");
+  } catch {
+    return null;
+  }
 }
 
 function parseDurationSeconds(duration: string) {
