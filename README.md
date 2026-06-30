@@ -17,6 +17,7 @@ OPENAI_API_KEY=
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 OPENAI_IMAGE_MODEL=gpt-image-1.5
 USE_MOCK_AI=false
+WEB_ORIGIN=http://localhost:3000
 ```
 
 프론트엔드 환경변수는 `apps/web/.env.local`에 둡니다.
