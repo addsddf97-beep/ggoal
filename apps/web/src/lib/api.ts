@@ -3,7 +3,8 @@ import type {
   SceneScript,
   ScriptResponse,
   TopicCandidate,
-  TopicsResponse
+  TopicsResponse,
+  VideoResponse
 } from "@food-shorts/shared";
 
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001").replace(/\/$/, "");
@@ -44,4 +45,13 @@ export function generateScript(idea: string, topic: TopicCandidate) {
 
 export function generateImages(scenes: SceneScript[]) {
   return postJson<ImagesResponse>("/api/images", { scenes });
+}
+
+export function generateVideo(jobId: string, scenes: ImagesResponse["scenes"]) {
+  return postJson<VideoResponse>("/api/video", {
+    jobId,
+    scenes,
+    voice: "verse",
+    burnSubtitles: true
+  });
 }

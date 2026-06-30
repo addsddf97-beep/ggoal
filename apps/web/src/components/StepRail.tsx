@@ -1,10 +1,11 @@
-import { Image, Lightbulb, ScrollText, Utensils } from "lucide-react";
+import { Image, Lightbulb, ScrollText, Utensils, Video } from "lucide-react";
 
 const steps = [
   { id: 1, label: "입력", icon: Utensils },
   { id: 2, label: "주제", icon: Lightbulb },
   { id: 3, label: "대본", icon: ScrollText },
-  { id: 4, label: "이미지", icon: Image }
+  { id: 4, label: "이미지", icon: Image },
+  { id: 5, label: "영상", icon: Video }
 ];
 
 type StepRailProps = {
@@ -13,7 +14,7 @@ type StepRailProps = {
 
 export function StepRail({ currentStep }: StepRailProps) {
   return (
-    <nav className="grid grid-cols-4 gap-2" aria-label="제작 단계">
+    <nav className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="제작 단계">
       {steps.map((step) => {
         const Icon = step.icon;
         const active = currentStep === step.id;

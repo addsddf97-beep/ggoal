@@ -45,7 +45,17 @@ export const scriptSchema = z.object({
 
 export const sceneImageSchema = sceneSchema.extend({
   imageUrl: z.string().min(1),
-  imagePath: z.string().min(1)
+  imagePath: z.string().min(1),
+  imageDataUrl: z.string().min(1).optional()
+});
+
+export const sceneVideoSchema = sceneImageSchema.extend({
+  audioUrl: z.string().min(1),
+  audioPath: z.string().min(1),
+  audioDataUrl: z.string().min(1).optional(),
+  durationSeconds: z.number().positive(),
+  subtitleStart: z.string().min(1),
+  subtitleEnd: z.string().min(1)
 });
 
 export const topicsRequestSchema = z.object({
@@ -75,13 +85,41 @@ export const imagesResponseSchema = z.object({
   scenes: z.array(sceneImageSchema).min(1)
 });
 
+export const videoRequestSchema = z.object({
+  jobId: z.string().trim().min(1).optional(),
+  scenes: z.array(sceneImageSchema).min(1).max(10),
+  voice: z
+    .enum(["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"])
+    .optional(),
+  burnSubtitles: z.boolean().optional()
+});
+
+export const videoResponseSchema = z.object({
+  jobId: z.string().min(1),
+  videoUrl: z.string().min(1),
+  videoPath: z.string().min(1),
+  videoDataUrl: z.string().min(1).optional(),
+  srtUrl: z.string().min(1),
+  srtPath: z.string().min(1),
+  srtText: z.string().min(1).optional(),
+  assUrl: z.string().min(1),
+  assPath: z.string().min(1),
+  assText: z.string().min(1).optional(),
+  audioUrl: z.string().min(1),
+  audioPath: z.string().min(1),
+  audioDataUrl: z.string().min(1).optional(),
+  scenes: z.array(sceneVideoSchema).min(1)
+});
+
 export type TopicCandidate = z.infer<typeof topicCandidateSchema>;
 export type SceneScript = z.infer<typeof sceneSchema>;
 export type ShortsScript = z.infer<typeof scriptSchema>;
 export type SceneImage = z.infer<typeof sceneImageSchema>;
+export type SceneVideo = z.infer<typeof sceneVideoSchema>;
 export type TopicsResponse = z.infer<typeof topicsResponseSchema>;
 export type ScriptResponse = z.infer<typeof scriptResponseSchema>;
 export type ImagesResponse = z.infer<typeof imagesResponseSchema>;
+export type VideoResponse = z.infer<typeof videoResponseSchema>;
 
 export type ApiErrorResponse = {
   error: string;

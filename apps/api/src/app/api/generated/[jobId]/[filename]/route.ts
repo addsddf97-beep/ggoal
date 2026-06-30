@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest } from "next/server";
 import { corsHeaders, handleApiError } from "@/lib/http";
-import { getGeneratedImagePath, isSafeGeneratedImageName } from "@/lib/storage";
+import { getGeneratedFilePath, isSafeGeneratedImageName } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -18,14 +18,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return new Response("Not found", { status: 404, headers: corsHeaders });
     }
 
-    const imagePath = getGeneratedImagePath(jobId, filename);
-    const image = await readFile(imagePath);
+    const filePath = getGeneratedFilePath(jobId, filename);
+    const file = await readFile(filePath);
     const download = request.nextUrl.searchParams.get("download") === "true";
 
-    return new Response(image, {
+    return new Response(file, {
       headers: {
         ...corsHeaders,
-        "Content-Type": "image/png",
+        "Content-Type": getContentType(filename),
         "Cache-Control": "public, max-age=31536000, immutable",
         ...(download ? { "Content-Disposition": `attachment; filename="${path.basename(filename)}"` } : {})
       }
@@ -37,4 +37,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export function OPTIONS() {
   return new Response(null, { headers: corsHeaders });
+}
+
+function getContentType(filename: string) {
+  if (filename.endsWith(".mp4")) return "video/mp4";
+  if (filename.endsWith(".mp3")) return "audio/mpeg";
+  if (filename.endsWith(".srt")) return "application/x-subrip; charset=utf-8";
+  if (filename.endsWith(".ass")) return "text/plain; charset=utf-8";
+  if (filename.endsWith(".png")) return "image/png";
+  if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+  return "application/octet-stream";
 }

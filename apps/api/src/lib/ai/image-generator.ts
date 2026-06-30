@@ -15,7 +15,8 @@ export async function generateImagesForScenes(scenes: SceneScript[], requestedJo
 
     results.push({
       ...scene,
-      ...stored
+      ...stored,
+      imageDataUrl: `data:image/png;base64,${image.toString("base64")}`
     });
   }
 

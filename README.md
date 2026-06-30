@@ -16,6 +16,8 @@
 OPENAI_API_KEY=
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 OPENAI_IMAGE_MODEL=gpt-image-1.5
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
+OPENAI_TTS_VOICE=verse
 USE_MOCK_AI=false
 WEB_ORIGIN=http://localhost:3000
 ```
@@ -43,7 +45,8 @@ npm run dev
 - `POST /api/topics`: 음식/아이디어로 숏츠 주제 후보 5개 생성
 - `POST /api/script`: 선택한 주제로 30~60초 숏츠 스크립트 생성
 - `POST /api/images`: 씬별 캐릭터 이미지 생성 후 `apps/api/public/generated/{jobId}`에 저장
+- `POST /api/video`: 씬별 이미지, 대사, 자막을 TTS 오디오와 MP4 숏츠 영상으로 합성
 
 ## MVP 범위
 
-로그인, 결제, DB, 영상 렌더링, 실제 음성 파일 생성은 제외했습니다. 이미지 저장과 AI 호출 로직은 추후 S3, Supabase Storage, TTS, 영상 렌더링으로 확장하기 쉽도록 분리했습니다.
+로그인, 결제, DB는 제외했습니다. 생성 파일은 로컬에서는 `apps/api/public/generated`, Vercel에서는 임시 런타임 저장소에 저장됩니다. 운영용 장기 보관은 S3, Supabase Storage, Vercel Blob 같은 영구 스토리지로 바꾸기 쉽게 저장 로직을 분리했습니다.

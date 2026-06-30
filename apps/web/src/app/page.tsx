@@ -1,18 +1,22 @@
 "use client";
 
-import type { ImagesResponse, ShortsScript, TopicCandidate } from "@food-shorts/shared";
+import type { ImagesResponse, ShortsScript, TopicCandidate, VideoResponse } from "@food-shorts/shared";
 import {
   ArrowLeft,
+  Captions,
   Download,
+  Film,
   Image as ImageIcon,
   Loader2,
+  Mic2,
   RefreshCcw,
   ScrollText,
   Sparkles,
+  Video,
   WandSparkles
 } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
-import { createAbsoluteApiUrl, generateImages, generateScript, generateTopics } from "@/lib/api";
+import { createAbsoluteApiUrl, generateImages, generateScript, generateTopics, generateVideo } from "@/lib/api";
 import { downloadJson, formatPromptsForClipboard, formatScriptForClipboard } from "@/lib/format";
 import { CopyButton } from "@/components/CopyButton";
 import { SceneResultCard } from "@/components/SceneResultCard";
@@ -28,7 +32,8 @@ export default function Home() {
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const [script, setScript] = useState<ShortsScript | null>(null);
   const [images, setImages] = useState<ImagesResponse | null>(null);
-  const [loading, setLoading] = useState<"topics" | "script" | "images" | null>(null);
+  const [video, setVideo] = useState<VideoResponse | null>(null);
+  const [loading, setLoading] = useState<"topics" | "script" | "images" | "video" | null>(null);
   const [error, setError] = useState("");
 
   const selectedTopic = useMemo(
@@ -47,6 +52,7 @@ export default function Home() {
     setLoading("topics");
     setImages(null);
     setScript(null);
+    setVideo(null);
     setSelectedTopicId("");
 
     try {
@@ -70,6 +76,7 @@ export default function Home() {
     setError("");
     setLoading("script");
     setImages(null);
+    setVideo(null);
 
     try {
       const response = await generateScript(idea, selectedTopic);
@@ -90,6 +97,7 @@ export default function Home() {
 
     setError("");
     setLoading("images");
+    setVideo(null);
 
     try {
       const response = await generateImages(script.scenes);
@@ -102,17 +110,45 @@ export default function Home() {
     }
   }
 
+  async function handleVideo() {
+    if (!images) {
+      setError("이미지를 먼저 생성해 주세요.");
+      return;
+    }
+
+    setError("");
+    setLoading("video");
+
+    try {
+      const response = await generateVideo(images.jobId, images.scenes);
+      setVideo(response);
+      setStep(5);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "영상 생성에 실패했습니다.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   function resetWorkflow() {
     setStep(1);
     setTopics([]);
     setSelectedTopicId("");
     setScript(null);
     setImages(null);
+    setVideo(null);
     setError("");
   }
 
   const scriptClipboard = script ? formatScriptForClipboard(script) : "";
   const promptClipboard = script ? formatPromptsForClipboard(script.scenes) : "";
+  const videoSrc = video?.videoDataUrl ?? (video ? createAbsoluteApiUrl(video.videoUrl) : "");
+  const audioSrc = video?.audioDataUrl ?? (video ? createAbsoluteApiUrl(video.audioUrl) : "");
+  const srtSrc = video?.srtText
+    ? `data:text/plain;charset=utf-8,${encodeURIComponent(video.srtText)}`
+    : video
+      ? createAbsoluteApiUrl(video.srtUrl)
+      : "";
 
   return (
     <main className="min-h-screen">
@@ -339,6 +375,19 @@ export default function Home() {
                     JSON
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={handleVideo}
+                  disabled={!images || loading !== null}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-bold text-white transition hover:bg-punch disabled:bg-ink/25"
+                >
+                  {loading === "video" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Film className="h-4 w-4" aria-hidden />
+                  )}
+                  영상 합성
+                </button>
               </div>
 
               {images ? (
@@ -358,7 +407,8 @@ export default function Home() {
                   {images.scenes.map((scene) => (
                     <a
                       key={scene.sceneIndex}
-                      href={`${createAbsoluteApiUrl(scene.imageUrl)}?download=true`}
+                      href={scene.imageDataUrl ?? `${createAbsoluteApiUrl(scene.imageUrl)}?download=true`}
+                      download={`scene-${scene.sceneIndex}.png`}
                       className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-bold text-ink transition hover:border-ink"
                     >
                       <Download className="h-4 w-4" aria-hidden />
@@ -367,6 +417,103 @@ export default function Home() {
                   ))}
                 </div>
               ) : null}
+            </section>
+
+            <section className="rounded-lg border border-ink/10 bg-white p-4 shadow-crisp">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-punch">Step 5</p>
+                  <h2 className="text-2xl font-black text-ink">TTS·자막·영상 합성 결과</h2>
+                </div>
+                {video ? (
+                  <button
+                    type="button"
+                    onClick={() => downloadJson(`${video.jobId}-video.json`, { idea, selectedTopic, script, images, video })}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-bold text-ink transition hover:border-ink"
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                    JSON
+                  </button>
+                ) : null}
+              </div>
+
+              {video ? (
+                <div className="mt-4 grid gap-5 lg:grid-cols-[320px_1fr]">
+                  <div className="overflow-hidden rounded-lg border border-ink/10 bg-ink">
+                    <video
+                      controls
+                      playsInline
+                      className="aspect-[9/16] w-full bg-ink object-contain"
+                      src={videoSrc}
+                    >
+                      <track
+                        kind="subtitles"
+                        srcLang="ko"
+                        label="한국어"
+                        src={srtSrc}
+                        default
+                      />
+                    </video>
+                  </div>
+
+                  <div className="min-w-0 space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <a
+                        href={video.videoDataUrl ?? `${createAbsoluteApiUrl(video.videoUrl)}?download=true`}
+                        download="shorts-video.mp4"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-black text-white transition hover:bg-punch"
+                      >
+                        <Video className="h-4 w-4" aria-hidden />
+                        MP4
+                      </a>
+                      <a
+                        href={video.audioDataUrl ?? `${createAbsoluteApiUrl(video.audioUrl)}?download=true`}
+                        download="voiceover.mp3"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-black text-ink transition hover:border-ink"
+                      >
+                        <Mic2 className="h-4 w-4" aria-hidden />
+                        TTS
+                      </a>
+                      <a
+                        href={srtSrc || `${createAbsoluteApiUrl(video.srtUrl)}?download=true`}
+                        download="captions.srt"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-black text-ink transition hover:border-ink"
+                      >
+                        <Captions className="h-4 w-4" aria-hidden />
+                        SRT
+                      </a>
+                    </div>
+
+                    <div className="rounded-lg border border-ink/10 bg-paper p-4">
+                      <h3 className="text-lg font-black text-ink">씬별 음성 클립</h3>
+                      <div className="mt-3 grid gap-3">
+                        {video.scenes.map((scene) => (
+                          <article key={scene.sceneIndex} className="rounded-md border border-ink/10 bg-white p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-black text-punch">Scene {scene.sceneIndex}</p>
+                                <p className="text-sm font-bold text-ink">{scene.sceneTitle}</p>
+                              </div>
+                              <span className="rounded-md bg-mint/15 px-2.5 py-1 text-xs font-black text-ink">
+                                {scene.durationSeconds.toFixed(1)}초
+                              </span>
+                            </div>
+                            <audio
+                              controls
+                              className="mt-2 w-full"
+                              src={scene.audioDataUrl ?? createAbsoluteApiUrl(scene.audioUrl)}
+                            />
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-10 text-center text-sm font-bold text-ink/50">
+                  씬별 이미지가 준비되면 TTS, 자막, MP4 숏츠 영상이 여기에 표시됩니다.
+                </div>
+              )}
             </section>
           </div>
         </section>
