@@ -16,6 +16,7 @@
 OPENAI_API_KEY=
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 OPENAI_IMAGE_MODEL=gpt-image-1.5
+OPENAI_IMAGE_CONCURRENCY=3
 OPENAI_TTS_MODEL=gpt-4o-mini-tts
 OPENAI_TTS_VOICE=verse
 USE_MOCK_AI=false
@@ -28,7 +29,7 @@ WEB_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 ```
 
-API 키 없이 화면 흐름만 테스트하려면 `USE_MOCK_AI=true`로 실행할 수 있습니다.
+API 키 없이 화면 흐름만 테스트하려면 `USE_MOCK_AI=true`로 실행할 수 있습니다. 이미지 생성이 느리거나 rate limit이 생기면 `OPENAI_IMAGE_CONCURRENCY`를 `1`에서 `5` 사이로 조절하세요.
 
 ## 실행
 

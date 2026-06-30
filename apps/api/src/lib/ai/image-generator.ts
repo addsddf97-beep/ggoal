@@ -7,18 +7,16 @@ import { createOpenAiClient } from "@/lib/ai/openai-client";
 export async function generateImagesForScenes(scenes: SceneScript[], requestedJobId?: string) {
   const config = getServerConfig();
   const jobId = requestedJobId ?? createJobId();
-  const results = [];
-
-  for (const scene of scenes) {
+  const results = await mapWithConcurrency(scenes, config.imageConcurrency, async (scene) => {
     const image = config.useMockAi ? createMockPng(scene.sceneIndex) : await createSceneImage(scene);
     const stored = await saveGeneratedImage(jobId, scene.sceneIndex, image);
 
-    results.push({
+    return {
       ...scene,
       ...stored,
       imageDataUrl: `data:image/png;base64,${image.toString("base64")}`
-    });
-  }
+    };
+  });
 
   return {
     jobId,
@@ -57,4 +55,26 @@ async function createSceneImage(scene: SceneScript) {
   }
 
   throw new Error("OpenAI 이미지 응답이 비어 있습니다.");
+}
+
+async function mapWithConcurrency<TInput, TOutput>(
+  items: TInput[],
+  concurrency: number,
+  mapper: (item: TInput, index: number) => Promise<TOutput>
+) {
+  const results = new Array<TOutput>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, items.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+      }
+    })
+  );
+
+  return results;
 }
