@@ -32,6 +32,12 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
   const config = getServerConfig();
   const jobId = options.jobId ?? createJobId();
   const workDir = path.join(os.tmpdir(), "food-shorts-video", jobId);
+  const startedAt = Date.now();
+  const logProgress = (stage: string) => {
+    console.info(`[video:${jobId}] ${stage} ${Date.now() - startedAt}ms`);
+  };
+
+  logProgress(`start scenes=${scenes.length} tts=${config.ttsProvider} size=${config.videoWidth}x${config.videoHeight}@${config.videoFps}`);
   await mkdir(workDir, { recursive: true });
 
   const preparedScenes: PreparedScene[] = [];
@@ -58,14 +64,22 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     cursor += durationSeconds;
   }
 
+  logProgress("prepare media start");
   await mapWithConcurrency(preparedScenes, config.ttsConcurrency, async (scene) => {
-    await Promise.all([
-      resolveSceneImage(scene, workDir),
-      config.mockAi
-        ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
-        : createSceneSpeech(scene, scene.audioFilePath, options.voice)
-    ]);
+    const image = resolveSceneImage(scene, workDir).then((result) => {
+      logProgress(`scene ${scene.sceneIndex} image ready`);
+      return result;
+    });
+    const audio = (config.mockAi
+      ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
+      : createSceneSpeech(scene, scene.audioFilePath, options.voice)
+    ).then(() => {
+      logProgress(`scene ${scene.sceneIndex} audio ready`);
+    });
+
+    await Promise.all([image, audio]);
   });
+  logProgress("prepare media done");
 
   const srt = createSrt(preparedScenes);
   const ass = createAss(preparedScenes, config.videoWidth, config.videoHeight);
@@ -74,6 +88,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
 
   await writeFile(srtFilePath, srt);
   await writeFile(assFilePath, ass);
+  logProgress("captions ready");
 
   const sceneAssFiles = await Promise.all(preparedScenes.map(async (scene) => {
     const sceneAssPath = path.join(workDir, `scene-${scene.sceneIndex}.ass`);
@@ -95,7 +110,9 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
       height: config.videoHeight,
       width: config.videoWidth
     });
+    logProgress(`scene ${scene.sceneIndex} segment ready`);
   });
+  logProgress("segments done");
 
   const concatFilePath = path.join(workDir, "segments.txt");
   await writeFile(
@@ -105,6 +122,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
 
   const finalVideoPath = path.join(workDir, "shorts-video.mp4");
   await runFfmpeg(["-y", "-f", "concat", "-safe", "0", "-i", concatFilePath, "-c", "copy", finalVideoPath]);
+  logProgress("video concat done");
 
   const combinedAudioPath = path.join(workDir, "voiceover.mp3");
   const audioConcatFilePath = path.join(workDir, "audio.txt");
@@ -113,6 +131,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     preparedScenes.map((scene) => `file '${escapeConcatPath(scene.audioFilePath)}'`).join("\n")
   );
   await runFfmpeg(["-y", "-f", "concat", "-safe", "0", "-i", audioConcatFilePath, "-c", "copy", combinedAudioPath]);
+  logProgress("audio concat done");
 
   const [video, srtBuffer, assBuffer, audio] = await Promise.all([
     readFile(finalVideoPath),
@@ -135,6 +154,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
       })
     )
   ]);
+  logProgress("artifacts saved");
 
   return {
     jobId,
