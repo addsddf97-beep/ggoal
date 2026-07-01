@@ -88,7 +88,7 @@ export function getServerConfig(): ServerConfig {
     videoSegmentConcurrency: parseBoundedInteger(process.env.VIDEO_SEGMENT_CONCURRENCY, 2, 1, 3),
     videoWidth: parseBoundedInteger(process.env.VIDEO_WIDTH, 720, 360, 1080),
     videoHeight: parseBoundedInteger(process.env.VIDEO_HEIGHT, 1280, 640, 1920),
-    videoFps: parseBoundedInteger(process.env.VIDEO_FPS, 24, 12, 30),
+    videoFps: parseBoundedInteger(process.env.VIDEO_FPS, 24, 1, 30),
     mockAi: explicitMock,
     useMockAi: explicitMock || apiKey.length === 0
   };
