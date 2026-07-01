@@ -5,9 +5,14 @@ export type ServerConfig = {
   ollamaBaseUrl: string;
   ollamaTextModel: string;
   ollamaRequestTimeoutMs: number;
+  imageProvider: "local" | "openai";
   imageModel: string;
   imageQuality: string;
   imageConcurrency: number;
+  localImageBaseUrl: string;
+  localImageModel: string;
+  localImageSize: string;
+  localImageTimeoutMs: number;
   ttsProvider: "local" | "openai";
   ttsModel: string;
   ttsVoice: string;
@@ -30,6 +35,7 @@ export function getServerConfig(): ServerConfig {
   const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
   const explicitMock = process.env.USE_MOCK_AI === "true";
   const textProvider = parseTextProvider(process.env.TEXT_AI_PROVIDER);
+  const imageProvider = parseImageProvider(process.env.IMAGE_PROVIDER);
   const ttsProvider = parseTtsProvider(process.env.TTS_PROVIDER);
 
   return {
@@ -39,9 +45,19 @@ export function getServerConfig(): ServerConfig {
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434",
     ollamaTextModel: process.env.OLLAMA_TEXT_MODEL?.trim() || "qwen3:4b",
     ollamaRequestTimeoutMs: parseBoundedInteger(process.env.OLLAMA_REQUEST_TIMEOUT_MS, 180000, 10000, 300000),
+    imageProvider,
     imageModel: process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1.5",
     imageQuality: process.env.OPENAI_IMAGE_QUALITY?.trim() || "low",
-    imageConcurrency: parseBoundedInteger(process.env.OPENAI_IMAGE_CONCURRENCY, 4, 1, 5),
+    imageConcurrency: parseBoundedInteger(
+      process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY,
+      imageProvider === "local" ? 1 : 4,
+      1,
+      5
+    ),
+    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "http://127.0.0.1:8010",
+    localImageModel: process.env.LOCAL_IMAGE_MODEL?.trim() || "LlamaGen GPT-XL Text-to-Image",
+    localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "256x256",
+    localImageTimeoutMs: parseBoundedInteger(process.env.LOCAL_IMAGE_TIMEOUT_MS, 180000, 10000, 300000),
     ttsProvider,
     ttsModel: process.env.OPENAI_TTS_MODEL?.trim() || "gpt-4o-mini-tts",
     ttsVoice: process.env.OPENAI_TTS_VOICE?.trim() || "verse",
@@ -85,6 +101,11 @@ function parseBoundedInteger(value: string | undefined, fallback: number, min: n
 function parseTextProvider(value: string | undefined): "ollama" | "openai" {
   const normalized = value?.trim().toLowerCase();
   return normalized === "openai" ? "openai" : "ollama";
+}
+
+function parseImageProvider(value: string | undefined): "local" | "openai" {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "openai" ? "openai" : "local";
 }
 
 function parseTtsProvider(value: string | undefined): "local" | "openai" {

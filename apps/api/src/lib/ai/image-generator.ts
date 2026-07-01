@@ -9,6 +9,7 @@ import { createJobId, saveGeneratedImage } from "@/lib/storage";
 import { getServerConfig } from "@/lib/env";
 import { createMockPng } from "@/lib/ai/mock";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
+import { createLocalImage } from "@/lib/ai/local-image-client";
 import { mapWithConcurrency } from "@/lib/concurrency";
 
 const require = createRequire(import.meta.url);
@@ -17,7 +18,7 @@ export async function generateImagesForScenes(scenes: SceneScript[], requestedJo
   const config = getServerConfig();
   const jobId = requestedJobId ?? createJobId();
   const results = await mapWithConcurrency(scenes, config.imageConcurrency, async (scene) => {
-    const sourceImage = config.useMockAi ? createMockPng(scene.sceneIndex) : await createSceneImage(scene);
+    const sourceImage = config.mockAi ? createMockPng(scene.sceneIndex) : await createSceneImage(scene);
     const image = await compressSceneImage(sourceImage, scene.sceneIndex);
     const stored = await saveGeneratedImage(jobId, scene.sceneIndex, image, "jpg");
 
@@ -35,15 +36,22 @@ export async function generateImagesForScenes(scenes: SceneScript[], requestedJo
 }
 
 async function createSceneImage(scene: SceneScript) {
+  const runtimeConfig = getServerConfig();
+  const prompt = [
+    scene.imagePrompt,
+    "Use a vertical 9:16 shorts composition.",
+    "Do not render readable text, captions, logos, watermarks, or UI.",
+    "Keep the bottom 20 percent visually clean for Korean subtitles added later."
+  ].join(" ");
+
+  if (runtimeConfig.imageProvider === "local") {
+    return createLocalImage(prompt);
+  }
+
   const { client, config } = createOpenAiClient();
   const response = await client.images.generate({
     model: config.imageModel,
-    prompt: [
-      scene.imagePrompt,
-      "Use a vertical 9:16 shorts composition.",
-      "Do not render readable text, captions, logos, watermarks, or UI.",
-      "Keep the bottom 20 percent visually clean for Korean subtitles added later."
-    ].join(" "),
+    prompt,
     quality: config.imageQuality,
     size: "1024x1536",
     n: 1
