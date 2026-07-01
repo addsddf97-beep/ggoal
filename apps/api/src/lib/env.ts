@@ -1,6 +1,10 @@
 export type ServerConfig = {
   apiKey: string;
+  textProvider: "ollama" | "openai";
   textModel: string;
+  ollamaBaseUrl: string;
+  ollamaTextModel: string;
+  ollamaRequestTimeoutMs: number;
   imageModel: string;
   imageQuality: string;
   imageConcurrency: number;
@@ -11,16 +15,22 @@ export type ServerConfig = {
   videoWidth: number;
   videoHeight: number;
   videoFps: number;
+  mockAi: boolean;
   useMockAi: boolean;
 };
 
 export function getServerConfig(): ServerConfig {
   const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
   const explicitMock = process.env.USE_MOCK_AI === "true";
+  const textProvider = parseTextProvider(process.env.TEXT_AI_PROVIDER);
 
   return {
     apiKey,
+    textProvider,
     textModel: process.env.OPENAI_TEXT_MODEL?.trim() || "gpt-5.4-mini",
+    ollamaBaseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434",
+    ollamaTextModel: process.env.OLLAMA_TEXT_MODEL?.trim() || "qwen3:4b",
+    ollamaRequestTimeoutMs: parseBoundedInteger(process.env.OLLAMA_REQUEST_TIMEOUT_MS, 180000, 10000, 300000),
     imageModel: process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1.5",
     imageQuality: process.env.OPENAI_IMAGE_QUALITY?.trim() || "low",
     imageConcurrency: parseBoundedInteger(process.env.OPENAI_IMAGE_CONCURRENCY, 4, 1, 5),
@@ -31,6 +41,7 @@ export function getServerConfig(): ServerConfig {
     videoWidth: parseBoundedInteger(process.env.VIDEO_WIDTH, 720, 360, 1080),
     videoHeight: parseBoundedInteger(process.env.VIDEO_HEIGHT, 1280, 640, 1920),
     videoFps: parseBoundedInteger(process.env.VIDEO_FPS, 24, 12, 30),
+    mockAi: explicitMock,
     useMockAi: explicitMock || apiKey.length === 0
   };
 }
@@ -49,4 +60,9 @@ function parseBoundedInteger(value: string | undefined, fallback: number, min: n
   }
 
   return Math.min(max, Math.max(min, parsed));
+}
+
+function parseTextProvider(value: string | undefined): "ollama" | "openai" {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "openai" ? "openai" : "ollama";
 }
