@@ -35,8 +35,8 @@ export async function saveGeneratedFile(jobId: string, filename: string, file: B
   };
 }
 
-export async function saveGeneratedImage(jobId: string, sceneIndex: number, image: Buffer) {
-  return saveGeneratedFile(jobId, `scene-${sceneIndex}.png`, image);
+export async function saveGeneratedImage(jobId: string, sceneIndex: number, image: Buffer, extension = "png") {
+  return saveGeneratedFile(jobId, `scene-${sceneIndex}.${extension}`, image);
 }
 
 export async function saveGeneratedArtifact(jobId: string, filename: string, file: Buffer) {

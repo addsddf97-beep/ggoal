@@ -408,7 +408,7 @@ export default function Home() {
                     <a
                       key={scene.sceneIndex}
                       href={scene.imageDataUrl ?? `${createAbsoluteApiUrl(scene.imageUrl)}?download=true`}
-                      download={`scene-${scene.sceneIndex}.png`}
+                      download={`scene-${scene.sceneIndex}.${scene.imageDataUrl?.startsWith("data:image/jpeg") || scene.imageUrl.endsWith(".jpg") ? "jpg" : "png"}`}
                       className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-bold text-ink transition hover:border-ink"
                     >
                       <Download className="h-4 w-4" aria-hidden />

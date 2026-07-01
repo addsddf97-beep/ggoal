@@ -12,6 +12,7 @@ type SceneResultCardProps = {
 export function SceneResultCard({ scene }: SceneResultCardProps) {
   const imageUrl = scene.imageDataUrl ?? createAbsoluteApiUrl(scene.imageUrl);
   const downloadUrl = scene.imageDataUrl ?? `${imageUrl}?download=true`;
+  const imageExtension = scene.imageDataUrl?.startsWith("data:image/jpeg") || scene.imageUrl.endsWith(".jpg") ? "jpg" : "png";
   const copyValue = [
     `Scene ${scene.sceneIndex}. ${scene.sceneTitle}`,
     `대사: ${scene.dialogue}`,
@@ -38,7 +39,7 @@ export function SceneResultCard({ scene }: SceneResultCardProps) {
             <CopyButton label="씬 복사" value={copyValue} compact />
             <a
               href={downloadUrl}
-              download={`scene-${scene.sceneIndex}.png`}
+              download={`scene-${scene.sceneIndex}.${imageExtension}`}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-ink/15 bg-ink px-3 text-sm font-semibold text-white transition hover:bg-punch"
               title="이미지 다운로드"
             >
