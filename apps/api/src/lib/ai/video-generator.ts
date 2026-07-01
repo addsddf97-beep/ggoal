@@ -243,6 +243,7 @@ async function createVideoSegment(
   burnSubtitles: boolean,
   video: { fps: number; height: number; width: number }
 ) {
+  const videoOnlyPath = `${scene.segmentFilePath}.video.mp4`;
   const filters = [
     `scale=${video.width}:${video.height}:force_original_aspect_ratio=increase`,
     `crop=${video.width}:${video.height}`,
@@ -254,30 +255,43 @@ async function createVideoSegment(
     "-y",
     "-loop",
     "1",
-    "-framerate",
+    "-i",
+    scene.imageFilePath,
+    "-vf",
+    filters.join(","),
+    "-r",
     String(video.fps),
     "-t",
     String(scene.durationSeconds),
-    "-i",
-    scene.imageFilePath,
-    "-i",
-    scene.audioFilePath,
-    "-vf",
-    filters.join(","),
     "-c:v",
     "libx264",
     "-preset",
     "ultrafast",
+    "-tune",
+    "stillimage",
     "-crf",
     "35",
     "-pix_fmt",
     "yuv420p",
+    "-an",
+    videoOnlyPath
+  ]);
+
+  await runFfmpeg([
+    "-y",
+    "-i",
+    videoOnlyPath,
+    "-i",
+    scene.audioFilePath,
+    "-c:v",
+    "copy",
     "-c:a",
     "aac",
     "-b:a",
-    "128k",
-    "-t",
-    String(scene.durationSeconds),
+    "96k",
+    "-shortest",
+    "-movflags",
+    "+faststart",
     scene.segmentFilePath
   ]);
 }
@@ -327,13 +341,28 @@ function runFfmpeg(args: string[]) {
 
     const child = spawn(binaryPath, args);
     let stderr = "";
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGKILL");
+      reject(new Error(`ffmpeg 실행 시간이 25초를 초과했습니다: ${stderr.slice(-1200)}`));
+    }, 25000);
 
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
 
-    child.on("error", reject);
+    child.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(error);
+    });
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       if (code === 0) {
         resolve();
       } else {
