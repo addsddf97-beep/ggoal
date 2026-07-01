@@ -1,7 +1,10 @@
 export type ServerConfig = {
   apiKey: string;
-  textProvider: "ollama" | "openai";
+  textProvider: "zrok" | "ollama" | "openai";
   textModel: string;
+  zrokAiBaseUrl: string;
+  zrokTextModel: string;
+  zrokRequestTimeoutMs: number;
   ollamaBaseUrl: string;
   ollamaTextModel: string;
   ollamaRequestTimeoutMs: number;
@@ -45,6 +48,9 @@ export function getServerConfig(): ServerConfig {
     apiKey,
     textProvider,
     textModel: process.env.OPENAI_TEXT_MODEL?.trim() || "gpt-5.4-mini",
+    zrokAiBaseUrl: process.env.ZROK_AI_BASE_URL?.trim() || "https://ym1mvbhf9e0w.shares.zrok.io",
+    zrokTextModel: process.env.ZROK_TEXT_MODEL?.trim() || "local-qwen-4b",
+    zrokRequestTimeoutMs: parseBoundedInteger(process.env.ZROK_REQUEST_TIMEOUT_MS, 65000, 10000, 120000),
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434",
     ollamaTextModel: process.env.OLLAMA_TEXT_MODEL?.trim() || "qwen3:4b",
     ollamaRequestTimeoutMs: parseBoundedInteger(process.env.OLLAMA_REQUEST_TIMEOUT_MS, 180000, 10000, 300000),
@@ -73,7 +79,7 @@ export function getServerConfig(): ServerConfig {
       1,
       5
     ),
-    localTtsBaseUrl: process.env.LOCAL_TTS_BASE_URL?.trim() || "http://127.0.0.1:8088",
+    localTtsBaseUrl: process.env.LOCAL_TTS_BASE_URL?.trim() || "https://ym1mvbhf9e0w.shares.zrok.io",
     localTtsVoice: process.env.LOCAL_TTS_VOICE?.trim() || "Microsoft Heami Desktop",
     localTtsLanguage: process.env.LOCAL_TTS_LANGUAGE?.trim() || "ko-KR",
     localTtsRate: parseBoundedInteger(process.env.LOCAL_TTS_RATE, 1, -10, 10),
@@ -114,9 +120,17 @@ function parseBoundedNumber(value: string | undefined, fallback: number, min: nu
   return Math.min(max, Math.max(min, parsed));
 }
 
-function parseTextProvider(value: string | undefined): "ollama" | "openai" {
+function parseTextProvider(value: string | undefined): "zrok" | "ollama" | "openai" {
   const normalized = value?.trim().toLowerCase();
-  return normalized === "openai" ? "openai" : "ollama";
+  if (normalized === "openai" || normalized === "ollama") {
+    return normalized;
+  }
+
+  if (normalized === "local" || normalized === "zrok") {
+    return "zrok";
+  }
+
+  return "zrok";
 }
 
 function parseImageProvider(value: string | undefined): "local" | "openai" {

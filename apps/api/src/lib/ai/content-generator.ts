@@ -5,6 +5,8 @@ import { createMockScript, createMockTopics } from "@/lib/ai/mock";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
 import { generateOllamaText } from "@/lib/ai/ollama-client";
 import type { OllamaMessage } from "@/lib/ai/ollama-client";
+import { generateZrokText } from "@/lib/ai/zrok-text-client";
+import type { ZrokMessage } from "@/lib/ai/zrok-text-client";
 import { buildScriptPrompt, buildTopicsPrompt, systemPrompt } from "@/lib/ai/prompts";
 import { scriptJsonSchema, topicCandidatesJsonSchema } from "@/lib/ai/json-schema";
 import { parseJsonFromText, readOutputText } from "@/lib/ai/response-parser";
@@ -67,6 +69,10 @@ export async function generateTopicCandidates(idea: string) {
     return createMockTopics(idea);
   }
 
+  if (config.textProvider === "zrok") {
+    return generateTopicCandidatesWithZrok(idea);
+  }
+
   if (config.textProvider === "ollama") {
     return generateTopicCandidatesWithOllama(idea);
   }
@@ -108,6 +114,10 @@ export async function generateShortsScript(idea: string, topic: TopicCandidate) 
 
   if (config.mockAi) {
     return createMockScript(idea, topic);
+  }
+
+  if (config.textProvider === "zrok") {
+    return generateShortsScriptWithZrok(idea, topic);
   }
 
   if (config.textProvider === "ollama") {
@@ -157,6 +167,25 @@ async function generateTopicCandidatesWithOllama(idea: string) {
   );
 }
 
+async function generateTopicCandidatesWithZrok(idea: string) {
+  const parsed = await generateZrokJson({
+    userPrompt: buildOllamaJsonPrompt(buildOllamaTopicsPrompt(idea), topicOutputShape, [
+      "topics 배열은 정확히 5개다.",
+      "각 후보의 title, hook, direction은 서로 다르게 쓴다.",
+      "각 문자열은 가능하면 35자 이내로 짧게 쓴다."
+    ]),
+    maxTokens: 800,
+    parse: (value) => topicModelResponseSchema.parse(value)
+  });
+
+  return parsed.topics.map((topic, index) =>
+    topicCandidateSchema.parse({
+      ...topic,
+      id: `topic-${index + 1}`
+    })
+  );
+}
+
 async function generateShortsScriptWithOllama(idea: string, topic: TopicCandidate) {
   return generateOllamaJson({
     userPrompt: buildOllamaJsonPrompt(buildOllamaScriptPrompt(idea, topic), scriptOutputShape, [
@@ -165,6 +194,18 @@ async function generateShortsScriptWithOllama(idea: string, topic: TopicCandidat
       "imagePrompt는 영어 한 문장으로 쓴다."
     ]),
     numPredict: 2200,
+    parse: (value) => scriptSchema.parse(value)
+  });
+}
+
+async function generateShortsScriptWithZrok(idea: string, topic: TopicCandidate) {
+  return generateZrokJson({
+    userPrompt: buildOllamaJsonPrompt(buildOllamaScriptPrompt(idea, topic), scriptOutputShape, [
+      "scenes 배열은 4개로 만든다.",
+      "각 대사와 자막은 짧고 말맛 있게 쓴다.",
+      "imagePrompt는 영어 한 문장으로 쓴다."
+    ]),
+    maxTokens: 2200,
     parse: (value) => scriptSchema.parse(value)
   });
 }
@@ -214,6 +255,53 @@ async function generateOllamaJson<T>({
   }
 
   throw new Error(`Ollama JSON 응답 형식이 올바르지 않습니다: ${describeGenerationError(lastError)}`);
+}
+
+async function generateZrokJson<T>({
+  userPrompt,
+  maxTokens,
+  parse
+}: {
+  userPrompt: string;
+  maxTokens: number;
+  parse: (value: unknown) => T;
+}) {
+  const messages: ZrokMessage[] = [
+    {
+      role: "system" as const,
+      content: [
+        ollamaSystemPrompt,
+        "/no_think",
+        "반드시 순수 JSON 객체만 반환한다.",
+        "마크다운 코드블록, 설명문, <think> 태그, JSON 밖의 텍스트를 절대 포함하지 않는다."
+      ].join("\n")
+    },
+    { role: "user" as const, content: userPrompt }
+  ];
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const output = await generateZrokText({ messages, maxTokens });
+
+    try {
+      return parse(parseJsonFromText<unknown>(output));
+    } catch (error) {
+      lastError = error;
+      messages.push(
+        { role: "assistant", content: output },
+        {
+          role: "user",
+          content: [
+            "방금 응답은 필요한 JSON 형식 검증에 실패했다.",
+            `오류: ${describeGenerationError(error)}`,
+            "이전 내용을 고쳐서 순수 JSON 객체만 다시 출력해라. 다른 설명은 쓰지 마라."
+          ].join("\n")
+        }
+      );
+    }
+  }
+
+  throw new Error(`zrok JSON 응답 형식이 올바르지 않습니다: ${describeGenerationError(lastError)}`);
 }
 
 function buildOllamaJsonPrompt(taskPrompt: string, outputShape: string, rules: string[]) {
