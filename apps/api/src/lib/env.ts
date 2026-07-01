@@ -8,9 +8,16 @@ export type ServerConfig = {
   imageModel: string;
   imageQuality: string;
   imageConcurrency: number;
+  ttsProvider: "local" | "openai";
   ttsModel: string;
   ttsVoice: string;
   ttsConcurrency: number;
+  localTtsBaseUrl: string;
+  localTtsVoice: string;
+  localTtsLanguage: string;
+  localTtsRate: number;
+  localTtsVolume: number;
+  localTtsTimeoutMs: number;
   videoSegmentConcurrency: number;
   videoWidth: number;
   videoHeight: number;
@@ -23,6 +30,7 @@ export function getServerConfig(): ServerConfig {
   const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
   const explicitMock = process.env.USE_MOCK_AI === "true";
   const textProvider = parseTextProvider(process.env.TEXT_AI_PROVIDER);
+  const ttsProvider = parseTtsProvider(process.env.TTS_PROVIDER);
 
   return {
     apiKey,
@@ -34,9 +42,21 @@ export function getServerConfig(): ServerConfig {
     imageModel: process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1.5",
     imageQuality: process.env.OPENAI_IMAGE_QUALITY?.trim() || "low",
     imageConcurrency: parseBoundedInteger(process.env.OPENAI_IMAGE_CONCURRENCY, 4, 1, 5),
+    ttsProvider,
     ttsModel: process.env.OPENAI_TTS_MODEL?.trim() || "gpt-4o-mini-tts",
     ttsVoice: process.env.OPENAI_TTS_VOICE?.trim() || "verse",
-    ttsConcurrency: parseBoundedInteger(process.env.OPENAI_TTS_CONCURRENCY, 3, 1, 5),
+    ttsConcurrency: parseBoundedInteger(
+      process.env.TTS_CONCURRENCY ?? process.env.OPENAI_TTS_CONCURRENCY,
+      ttsProvider === "local" ? 1 : 3,
+      1,
+      5
+    ),
+    localTtsBaseUrl: process.env.LOCAL_TTS_BASE_URL?.trim() || "http://127.0.0.1:8088",
+    localTtsVoice: process.env.LOCAL_TTS_VOICE?.trim() || "Microsoft Heami Desktop",
+    localTtsLanguage: process.env.LOCAL_TTS_LANGUAGE?.trim() || "ko-KR",
+    localTtsRate: parseBoundedInteger(process.env.LOCAL_TTS_RATE, 1, -10, 10),
+    localTtsVolume: parseBoundedInteger(process.env.LOCAL_TTS_VOLUME, 100, 0, 100),
+    localTtsTimeoutMs: parseBoundedInteger(process.env.LOCAL_TTS_TIMEOUT_MS, 60000, 5000, 300000),
     videoSegmentConcurrency: parseBoundedInteger(process.env.VIDEO_SEGMENT_CONCURRENCY, 2, 1, 3),
     videoWidth: parseBoundedInteger(process.env.VIDEO_WIDTH, 720, 360, 1080),
     videoHeight: parseBoundedInteger(process.env.VIDEO_HEIGHT, 1280, 640, 1920),
@@ -47,7 +67,7 @@ export function getServerConfig(): ServerConfig {
 }
 
 export function assertOpenAiReady(config: ServerConfig) {
-  if (!config.useMockAi && !config.apiKey) {
+  if (!config.apiKey) {
     throw new Error("OPENAI_API_KEY is required when USE_MOCK_AI=false.");
   }
 }
@@ -65,4 +85,9 @@ function parseBoundedInteger(value: string | undefined, fallback: number, min: n
 function parseTextProvider(value: string | undefined): "ollama" | "openai" {
   const normalized = value?.trim().toLowerCase();
   return normalized === "openai" ? "openai" : "ollama";
+}
+
+function parseTtsProvider(value: string | undefined): "local" | "openai" {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "openai" ? "openai" : "local";
 }

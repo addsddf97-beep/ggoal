@@ -8,6 +8,7 @@ import type { SceneImage } from "@food-shorts/shared";
 import { createJobId, getGeneratedFilePath, saveGeneratedArtifact } from "@/lib/storage";
 import { getServerConfig } from "@/lib/env";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
+import { createLocalTtsAudio } from "@/lib/ai/local-tts-client";
 import { mapWithConcurrency } from "@/lib/concurrency";
 
 const require = createRequire(import.meta.url);
@@ -60,9 +61,9 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
   await mapWithConcurrency(preparedScenes, config.ttsConcurrency, async (scene) => {
     await Promise.all([
       resolveSceneImage(scene, workDir),
-      config.useMockAi
+      config.mockAi
         ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
-        : createSceneSpeech(scene, scene.audioFilePath, options.voice ?? config.ttsVoice)
+        : createSceneSpeech(scene, scene.audioFilePath, options.voice)
     ]);
   });
 
@@ -163,11 +164,34 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
   };
 }
 
-async function createSceneSpeech(scene: SceneImage, audioFilePath: string, voice: string) {
+async function createSceneSpeech(scene: SceneImage, audioFilePath: string, requestedVoice?: string) {
+  const runtimeConfig = getServerConfig();
+
+  if (runtimeConfig.ttsProvider === "local") {
+    const sourceAudioPath = `${audioFilePath}.source`;
+    await writeFile(sourceAudioPath, await createLocalTtsAudio({ text: scene.dialogue }));
+    await runFfmpeg([
+      "-y",
+      "-i",
+      sourceAudioPath,
+      "-vn",
+      "-ar",
+      "44100",
+      "-ac",
+      "2",
+      "-q:a",
+      "4",
+      "-codec:a",
+      "libmp3lame",
+      audioFilePath
+    ]);
+    return;
+  }
+
   const { client, config } = createOpenAiClient();
   const speech = await client.audio.speech.create({
     model: config.ttsModel,
-    voice,
+    voice: requestedVoice ?? config.ttsVoice,
     input: scene.dialogue,
     response_format: "mp3",
     instructions: `Speak Korean quickly and expressively for YouTube Shorts. Voice tone guide: ${scene.voiceTone}`
