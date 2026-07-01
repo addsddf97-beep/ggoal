@@ -12,6 +12,9 @@ export type ServerConfig = {
   localImageBaseUrl: string;
   localImageModel: string;
   localImageSize: string;
+  localImageSeed: number;
+  localImageCfgScale: number;
+  localImageTemperature: number;
   localImageTimeoutMs: number;
   ttsProvider: "local" | "openai";
   ttsModel: string;
@@ -54,9 +57,12 @@ export function getServerConfig(): ServerConfig {
       1,
       5
     ),
-    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "http://127.0.0.1:8010",
+    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://zghikrizu48i.shares.zrok.io",
     localImageModel: process.env.LOCAL_IMAGE_MODEL?.trim() || "LlamaGen GPT-XL Text-to-Image",
     localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "256x256",
+    localImageSeed: parseBoundedInteger(process.env.LOCAL_IMAGE_SEED, 42, 0, 2147483647),
+    localImageCfgScale: parseBoundedNumber(process.env.LOCAL_IMAGE_CFG_SCALE, 7.5, 0, 30),
+    localImageTemperature: parseBoundedNumber(process.env.LOCAL_IMAGE_TEMPERATURE, 1.0, 0, 5),
     localImageTimeoutMs: parseBoundedInteger(process.env.LOCAL_IMAGE_TIMEOUT_MS, 180000, 10000, 300000),
     ttsProvider,
     ttsModel: process.env.OPENAI_TTS_MODEL?.trim() || "gpt-4o-mini-tts",
@@ -92,6 +98,16 @@ function parseBoundedInteger(value: string | undefined, fallback: number, min: n
   const parsed = Number(value);
 
   if (!Number.isInteger(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function parseBoundedNumber(value: string | undefined, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
     return fallback;
   }
 

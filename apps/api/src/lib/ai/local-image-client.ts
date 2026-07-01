@@ -17,17 +17,44 @@ export async function createLocalImage(prompt: string) {
   const baseUrl = normalizeBaseUrl(config.localImageBaseUrl);
 
   try {
-    return await createImageWithJsonApi(baseUrl, prompt, config);
+    return await createImageWithFileApi(baseUrl, prompt, config);
   } catch (error) {
     if (!(error instanceof LocalImageRequestError) || ![400, 404, 415, 422].includes(error.status)) {
       throw error;
     }
 
-    return createImageWithFileApi(baseUrl, prompt, config, error);
+    return createImageWithJsonApi(baseUrl, prompt, config, error);
   }
 }
 
-async function createImageWithJsonApi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
+async function createImageWithFileApi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
+  const response = await fetchWithTimeout(
+    new URL("/generate_file", baseUrl),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        prompt,
+        seed: config.localImageSeed,
+        cfg_scale: config.localImageCfgScale,
+        temperature: config.localImageTemperature,
+        size: config.localImageSize
+      })
+    },
+    config.localImageTimeoutMs
+  );
+
+  return readImageResponse(response, baseUrl, config.localImageTimeoutMs);
+}
+
+async function createImageWithJsonApi(
+  baseUrl: string,
+  prompt: string,
+  config: ReturnType<typeof getServerConfig>,
+  previousError: unknown
+) {
   const response = await fetchWithTimeout(
     new URL("/v1/images/generations", baseUrl),
     {
@@ -46,38 +73,11 @@ async function createImageWithJsonApi(baseUrl: string, prompt: string, config: R
     config.localImageTimeoutMs
   );
 
-  return readImageResponse(response, baseUrl, config.localImageTimeoutMs);
-}
-
-async function createImageWithFileApi(
-  baseUrl: string,
-  prompt: string,
-  config: ReturnType<typeof getServerConfig>,
-  previousError: unknown
-) {
-  const response = await fetchWithTimeout(
-    new URL("/generate_file", baseUrl),
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: config.localImageModel,
-        prompt,
-        size: config.localImageSize,
-        width: parseImageSize(config.localImageSize).width,
-        height: parseImageSize(config.localImageSize).height
-      })
-    },
-    config.localImageTimeoutMs
-  );
-
   try {
     return await readImageResponse(response, baseUrl, config.localImageTimeoutMs);
   } catch (error) {
     throw new Error(
-      `로컬 이미지 생성 API 호출에 실패했습니다. JSON API 오류: ${describeError(previousError)} / file API 오류: ${describeError(error)}`
+      `로컬 이미지 생성 API 호출에 실패했습니다. generate_file 오류: ${describeError(previousError)} / JSON API 오류: ${describeError(error)}`
     );
   }
 }
@@ -292,19 +292,6 @@ function decodeDataUrl(dataUrl: string) {
 
 function stripBase64Prefix(value: string) {
   return value.replace(/^base64,/i, "").replace(/\s/g, "");
-}
-
-function parseImageSize(size: string) {
-  const match = size.match(/^(\d+)x(\d+)$/);
-
-  if (!match) {
-    return { width: 256, height: 256 };
-  }
-
-  return {
-    width: Number(match[1]),
-    height: Number(match[2])
-  };
 }
 
 function normalizeBaseUrl(value: string) {

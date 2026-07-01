@@ -20,9 +20,12 @@ OLLAMA_TEXT_MODEL=qwen3:4b
 OLLAMA_REQUEST_TIMEOUT_MS=180000
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 IMAGE_PROVIDER=local
-LOCAL_IMAGE_BASE_URL=http://127.0.0.1:8010
+LOCAL_IMAGE_BASE_URL=https://zghikrizu48i.shares.zrok.io
 LOCAL_IMAGE_MODEL=LlamaGen GPT-XL Text-to-Image
 LOCAL_IMAGE_SIZE=256x256
+LOCAL_IMAGE_SEED=42
+LOCAL_IMAGE_CFG_SCALE=7.5
+LOCAL_IMAGE_TEMPERATURE=1.0
 LOCAL_IMAGE_TIMEOUT_MS=180000
 IMAGE_CONCURRENCY=1
 OPENAI_IMAGE_MODEL=gpt-image-1.5
@@ -49,7 +52,7 @@ WEB_ORIGIN=http://localhost:3000
 
 텍스트 생성은 기본적으로 로컬 Ollama의 `qwen3:4b`를 사용합니다. OpenAI 텍스트 모델로 되돌리고 싶으면 `TEXT_AI_PROVIDER=openai`로 바꾸면 됩니다.
 로컬 4B 모델은 장비 상태에 따라 첫 응답과 긴 대본 생성이 1분 이상 걸릴 수 있습니다.
-이미지 생성은 기본적으로 `http://127.0.0.1:8010/v1/images/generations`의 `LlamaGen GPT-XL Text-to-Image` 모델을 사용합니다. JSON base64 응답을 우선 사용하고, 서버가 해당 형식을 받지 않으면 `/generate_file`로 fallback합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
+이미지 생성은 기본적으로 zrok 공유 URL `https://zghikrizu48i.shares.zrok.io/generate_file`의 `LlamaGen GPT-XL Text-to-Image` 모델을 사용합니다. 요청 payload는 `prompt`, `seed`, `cfg_scale`, `temperature`, `size` 형식을 따르고, 서버가 해당 형식을 받지 않으면 `/v1/images/generations` JSON base64 API로 fallback합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
 TTS는 기본적으로 `http://127.0.0.1:8088/tts`의 Windows System.Speech `Microsoft Heami Desktop` 음성을 사용합니다. OpenAI TTS로 되돌리고 싶으면 `TTS_PROVIDER=openai`로 바꾸면 됩니다.
 
 프론트엔드 환경변수는 `apps/web/.env.local`에 둡니다.
@@ -77,7 +80,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\local-llm\Start-LocalLLMApi.ps1 -HostAddress 0.0.0.0 -Port 8088
 ```
 
-로컬 이미지 API 서버는 `http://127.0.0.1:8010`에서 실행되어야 합니다.
+이미지 API 서버는 zrok 공유 URL 또는 로컬 `http://127.0.0.1:8010`에서 실행될 수 있습니다.
 
 ```text
 GET  /health
@@ -99,7 +102,7 @@ POST /v1/images/generations
 
 - `429 You exceeded your current quota`: OpenAI API 계정의 크레딧, 결제수단, 또는 월 사용 한도를 확인해야 합니다. 코드 문제가 아니라 OpenAI Billing/Usage 제한입니다. 개발이나 시연 흐름만 확인하려면 `USE_MOCK_AI=true`로 전환하면 외부 API 호출 없이 mock 응답으로 테스트할 수 있습니다.
 - `Ollama 요청 실패` 또는 `connect ECONNREFUSED`: 로컬에서 `ollama serve`가 실행 중인지, `ollama list`에 `qwen3:4b`가 있는지 확인하세요. Vercel 서버는 내 Mac의 `127.0.0.1:11434`에 접근할 수 없으므로 로컬 Ollama 텍스트 생성을 쓰려면 API 서버도 로컬에서 실행해야 합니다.
-- `로컬 이미지 서버에 연결하지 못했습니다`: `http://localhost:8010/health`가 열리는지 확인하세요. 이 프로젝트는 로컬 이미지 API의 `/v1/images/generations`를 우선 사용하고, 필요하면 `/generate_file`만 사용합니다.
+- `로컬 이미지 서버에 연결하지 못했습니다`: `LOCAL_IMAGE_BASE_URL`의 `/health`가 열리는지 확인하세요. 이 프로젝트는 이미지 API의 `/generate_file`을 우선 사용하고, 필요하면 `/v1/images/generations`만 fallback으로 사용합니다.
 - `로컬 TTS 서버에 연결하지 못했습니다`: `http://localhost:8088/health`, `http://localhost:8088/tts/voices`가 열리는지 확인하세요. 이 프로젝트는 로컬 TTS API의 LLM/chat endpoint는 사용하지 않고 `/tts`와 `/audio/{filename}.wav`만 사용합니다.
 
 ## MVP 범위
