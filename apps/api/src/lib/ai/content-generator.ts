@@ -168,22 +168,23 @@ async function generateTopicCandidatesWithOllama(idea: string) {
 }
 
 async function generateTopicCandidatesWithZrok(idea: string) {
-  const parsed = await generateZrokJson({
-    userPrompt: buildOllamaJsonPrompt(buildOllamaTopicsPrompt(idea), topicOutputShape, [
-      "topics 배열은 정확히 5개다.",
-      "각 후보의 title, hook, direction은 서로 다르게 쓴다.",
-      "각 문자열은 가능하면 35자 이내로 짧게 쓴다."
-    ]),
-    maxTokens: 800,
-    parse: (value) => topicModelResponseSchema.parse(value)
-  });
+  try {
+    const parsed = await generateZrokJson({
+      userPrompt: buildZrokTopicsPrompt(idea),
+      maxTokens: 420,
+      parse: (value) => topicModelResponseSchema.parse(value)
+    });
 
-  return parsed.topics.map((topic, index) =>
-    topicCandidateSchema.parse({
-      ...topic,
-      id: `topic-${index + 1}`
-    })
-  );
+    return parsed.topics.map((topic, index) =>
+      topicCandidateSchema.parse({
+        ...topic,
+        id: `topic-${index + 1}`
+      })
+    );
+  } catch (error) {
+    console.warn(`zrok 주제 생성 실패, 대체 생성 사용: ${describeGenerationError(error)}`);
+    return createMockTopics(idea);
+  }
 }
 
 async function generateShortsScriptWithOllama(idea: string, topic: TopicCandidate) {
@@ -199,15 +200,16 @@ async function generateShortsScriptWithOllama(idea: string, topic: TopicCandidat
 }
 
 async function generateShortsScriptWithZrok(idea: string, topic: TopicCandidate) {
-  return generateZrokJson({
-    userPrompt: buildOllamaJsonPrompt(buildOllamaScriptPrompt(idea, topic), scriptOutputShape, [
-      "scenes 배열은 4개로 만든다.",
-      "각 대사와 자막은 짧고 말맛 있게 쓴다.",
-      "imagePrompt는 영어 한 문장으로 쓴다."
-    ]),
-    maxTokens: 2200,
-    parse: (value) => scriptSchema.parse(value)
-  });
+  try {
+    return await generateZrokJson({
+      userPrompt: buildZrokScriptPrompt(idea, topic),
+      maxTokens: 1200,
+      parse: (value) => scriptSchema.parse(value)
+    });
+  } catch (error) {
+    console.warn(`zrok 대본 생성 실패, 대체 생성 사용: ${describeGenerationError(error)}`);
+    return createMockScript(idea, topic);
+  }
 }
 
 async function generateOllamaJson<T>({
@@ -339,6 +341,34 @@ function buildOllamaScriptPrompt(idea: string, topic: TopicCandidate) {
     "30초 내외 유튜브 숏츠 스크립트를 만든다.",
     "흐름은 강한 훅, 음식 자기소개, 핵심 영양정보, 과장된 상황극, 균형 잡힌 마무리다.",
     "이미지 프롬프트는 영어로 쓰고 이미지 안 텍스트는 금지한다."
+  ].join("\n");
+}
+
+function buildZrokTopicsPrompt(idea: string) {
+  return [
+    "/no_think",
+    `음식: ${idea}`,
+    "아래 JSON만 출력한다. 설명 금지.",
+    topicOutputShape,
+    "topics는 정확히 5개.",
+    "모든 문자열은 짧게.",
+    "tone은 분노형, 억울형, 허세형, 상담형, 자폭형 중 하나."
+  ].join("\n");
+}
+
+function buildZrokScriptPrompt(idea: string, topic: TopicCandidate) {
+  return [
+    "/no_think",
+    `음식: ${idea}`,
+    `주제: ${topic.title}`,
+    `훅: ${topic.hook}`,
+    `캐릭터: ${topic.foodCharacter}`,
+    `영양포인트: ${topic.nutritionPoint}`,
+    "아래 JSON만 출력한다. 설명 금지.",
+    scriptOutputShape,
+    "scenes는 정확히 4개.",
+    "dialogue와 subtitle은 짧게.",
+    "imagePrompt는 영어, 이미지 안 텍스트 금지."
   ].join("\n");
 }
 

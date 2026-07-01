@@ -50,7 +50,7 @@ export function getServerConfig(): ServerConfig {
     textModel: process.env.OPENAI_TEXT_MODEL?.trim() || "gpt-5.4-mini",
     zrokAiBaseUrl: process.env.ZROK_AI_BASE_URL?.trim() || "https://ym1mvbhf9e0w.shares.zrok.io",
     zrokTextModel: process.env.ZROK_TEXT_MODEL?.trim() || "local-qwen-4b",
-    zrokRequestTimeoutMs: parseBoundedInteger(process.env.ZROK_REQUEST_TIMEOUT_MS, 65000, 10000, 120000),
+    zrokRequestTimeoutMs: parseBoundedInteger(process.env.ZROK_REQUEST_TIMEOUT_MS, 30000, 5000, 55000),
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434",
     ollamaTextModel: process.env.OLLAMA_TEXT_MODEL?.trim() || "qwen3:4b",
     ollamaRequestTimeoutMs: parseBoundedInteger(process.env.OLLAMA_REQUEST_TIMEOUT_MS, 180000, 10000, 300000),
