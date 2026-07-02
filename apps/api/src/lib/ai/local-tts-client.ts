@@ -21,55 +21,56 @@ export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
   const config = getServerConfig();
   const baseUrl = normalizeBaseUrl(config.localTtsBaseUrl);
   const normalizedSpeed = typeof speed === "number" && Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : undefined;
-  const ttsEndpoints = ["/generate_file", "/tts"];
-  const requestBodies = [
+  const endpointRequests = [
     {
-      message: text,
-      voice: config.localTtsVoice,
-      language: config.localTtsLanguage,
-      lang: config.localTtsLanguage,
-      rate: config.localTtsRate,
-      speed: normalizedSpeed,
-      volume: config.localTtsVolume,
-      format: "wav"
+      endpoint: "/tts",
+      bodies: [
+        {
+          message: text,
+          voice: config.localTtsVoice,
+          language: config.localTtsLanguage,
+          speed: normalizedSpeed
+        },
+        {
+          message: text
+        },
+        {
+          text,
+          speed: normalizedSpeed
+        }
+      ]
     },
     {
-      message: text,
-      speed: normalizedSpeed
-    },
-    {
-      text,
-      voice: config.localTtsVoice,
-      language: config.localTtsLanguage,
-      lang: config.localTtsLanguage,
-      rate: config.localTtsRate,
-      speed: normalizedSpeed,
-      format: "wav"
-    },
-    {
-      text,
-      voice: config.localTtsVoice,
-      rate: config.localTtsRate,
-      speed: normalizedSpeed,
-      volume: config.localTtsVolume,
-    },
-    {
-      input: text,
-      voice: config.localTtsVoice,
-      language: config.localTtsLanguage,
-      speed: normalizedSpeed
-    },
-    { text, speed: normalizedSpeed },
-    { text }
+      endpoint: "/generate_file",
+      bodies: [
+        {
+          message: text,
+          voice: config.localTtsVoice,
+          language: config.localTtsLanguage,
+          lang: config.localTtsLanguage,
+          rate: config.localTtsRate,
+          speed: normalizedSpeed,
+          volume: config.localTtsVolume,
+          format: "wav"
+        },
+        {
+          text,
+          voice: config.localTtsVoice,
+          rate: config.localTtsRate,
+          speed: normalizedSpeed,
+          volume: config.localTtsVolume,
+        }
+      ]
+    }
   ];
   let lastError: unknown;
   let attemptedEndpoint = "";
 
-  for (const endpoint of ttsEndpoints) {
-    for (const body of requestBodies) {
+  for (const request of endpointRequests) {
+    for (const body of request.bodies) {
       try {
-        attemptedEndpoint = endpoint;
-        return await postLocalTts(baseUrl, endpoint, body, config.localTtsTimeoutMs);
+        attemptedEndpoint = request.endpoint;
+        return await postLocalTts(baseUrl, request.endpoint, body, config.localTtsTimeoutMs);
       } catch (error) {
         lastError = error;
         if (!isRetryableTtsError(error)) {
@@ -148,6 +149,7 @@ async function postLocalTts(baseUrl: string, endpoint: string, body: JsonRecord,
 
 async function resolveAudioFromPayload(payload: unknown, baseUrl: string, timeoutMs: number): Promise<Buffer | null> {
   const directAudio = findStringValue(payload, [
+    "audio",
     "audioDataUrl",
     "audio_data_url",
     "audioBase64",
