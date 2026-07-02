@@ -103,7 +103,7 @@ ZROK_REQUEST_TIMEOUT_MS=30000
 
 IMAGE_PROVIDER=local
 LOCAL_IMAGE_API=legacy
-LOCAL_IMAGE_BASE_URL=https://k3wnuzs69ijq.shares.zrok.io
+LOCAL_IMAGE_BASE_URL=https://8cauqh4loyzr.shares.zrok.io
 LOCAL_IMAGE_MODEL=FLUX.2 Klein 4B mflux 4bit
 LOCAL_IMAGE_SIZE=512x512
 LOCAL_IMAGE_SEED=42
@@ -165,7 +165,7 @@ npm run dev
 | Model Role | Base URL | Main Endpoints |
 | --- | --- | --- |
 | Text | `https://ym1mvbhf9e0w.shares.zrok.io` | `/health`, `/v1/chat/completions` |
-| Image | `https://k3wnuzs69ijq.shares.zrok.io` | `/generate_file` |
+| Image | `https://8cauqh4loyzr.shares.zrok.io` | `/generate_file` |
 | TTS | `https://w3mzn1l1ted0.shares.zrok.io` | `/health`, `/tts/voices`, `/tts`, `/audio/{filename}.wav` |
 
 ## Demo Scenario

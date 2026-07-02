@@ -70,7 +70,7 @@ export function getServerConfig(): ServerConfig {
       1,
       5
     ),
-    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://k3wnuzs69ijq.shares.zrok.io",
+    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://8cauqh4loyzr.shares.zrok.io",
     localImageModel:
       process.env.LOCAL_IMAGE_MODEL?.trim() ||
       (localImageApi === "legacy" ? "FLUX.2 Klein 4B mflux 4bit" : "sd_xl_base_1.0.safetensors"),
