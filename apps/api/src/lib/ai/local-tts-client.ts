@@ -21,7 +21,7 @@ export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
   const config = getServerConfig();
   const baseUrl = normalizeBaseUrl(config.localTtsBaseUrl);
   const normalizedSpeed = typeof speed === "number" && Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : undefined;
-  const ttsEndpoints = ["/tts", "/generate_file"];
+  const ttsEndpoints = ["/generate_file", "/tts"];
   const requestBodies = [
     {
       message: text,
@@ -72,8 +72,7 @@ export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
         return await postLocalTts(baseUrl, endpoint, body, config.localTtsTimeoutMs);
       } catch (error) {
         lastError = error;
-
-        if (!(error instanceof LocalTtsRequestError) || ![400, 404, 405, 415, 422].includes(error.status)) {
+        if (!isRetryableTtsError(error)) {
           throw error;
         }
       }
@@ -83,6 +82,24 @@ export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
   throw new Error(
     `로컬 TTS 요청 형식이 맞지 않습니다 (${attemptedEndpoint}): ${describeError(lastError)}`
   );
+}
+
+function isRetryableTtsError(error: unknown) {
+  if (error instanceof LocalTtsRequestError) {
+    return [400, 404, 405, 415, 422, 429].includes(error.status);
+  }
+
+  if (error instanceof Error) {
+    const message = error.message;
+    return (
+      message.includes("로컬 TTS 응답에서 오디오를 찾지 못했습니다") ||
+      message.includes("로컬 TTS 응답이 JSON 또는 오디오가 아닙니다") ||
+      message.includes("연결하지 못했습니다") ||
+      message.includes("응답 시간이")
+    );
+  }
+
+  return false;
 }
 
 async function postLocalTts(baseUrl: string, endpoint: string, body: JsonRecord, timeoutMs: number) {
