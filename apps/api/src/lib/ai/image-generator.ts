@@ -38,9 +38,10 @@ export async function generateImagesForScenes(scenes: SceneScript[], requestedJo
 async function createSceneImage(scene: SceneScript) {
   const runtimeConfig = getServerConfig();
   const prompt = buildSceneImagePrompt(scene);
+  const imageSeed = buildDeterministicSeed(scene);
 
   if (runtimeConfig.imageProvider === "local") {
-    return createLocalImage(prompt);
+    return createLocalImage(prompt, { seed: imageSeed });
   }
 
   const { client, config } = createOpenAiClient();
@@ -72,22 +73,36 @@ async function createSceneImage(scene: SceneScript) {
 }
 
 function buildSceneImagePrompt(scene: SceneScript) {
-  const foodReference = cleanPromptText(scene.imagePrompt || scene.character || scene.sceneTitle || "food");
+  const foodReference = cleanPromptText(
+    scene.imagePrompt || scene.character || scene.sceneTitle || scene.dialogue || "food"
+  );
+  const identityAnchor = cleanPromptText(scene.character || scene.sceneTitle || foodReference || "food");
+  const visualTone = cleanPromptText(scene.visualDirection || "energetic self-introduction");
+  const sceneEmotion = cleanPromptText(scene.dialogue || "confident");
+  const nonNoodleClause = containsNoodleIdentity(foodReference, identityAnchor)
+    ? "이 음식은 국수 계열로 자연스럽게 표현해도 됩니다."
+    : "이 음식은 라면/국수류가 아닙니다. 국수 결, 면발, 국물, 라면 봉투, 스프 패키지, 면 그릇 연출은 사용하지 마세요.";
 
   return [
-    "Create one clean vertical Korean shorts cartoon sticker illustration.",
-    `Food reference only: ${foodReference}.`,
-    "Main subject: a cute food mascot. The mascot is the actual food item itself, not a person.",
-    "The food item has only a simple face directly on the food surface: eyes, eyebrows, mouth, and cheek blush are allowed.",
-    "The food may use its facial expression, open mouth, tilt, bounce pose, steam, sparkle, sauce, ingredients, and portion shape to feel like it is introducing itself.",
-    "Keep the body shape faithful to the food: bowl stays a bowl, noodle stays noodles, tomato stays tomato, carrot stays carrot.",
+    "Generate one vertical 9:16 Korean shorts image of a cute food mascot only.",
+    `Food identity anchor: ${identityAnchor}.`,
+    `Food reference detail (must match strongly): ${foodReference}.`,
+    `Scene style hint: ${visualTone}.`,
+    `Emotion cue: ${sceneEmotion}.`,
+    "Main subject is the exact food item itself, not a person or avatar substitute. Keep the core shape, cut section, texture, and main ingredients obvious.",
+    "Show only one cute mascot face on the food surface (eyes, brows, mouth, cheek tint, tiny nose okay).",
+    "Use pose changes per scene, not repeated neutral standing pose.",
+    nonNoodleClause,
+    "The image should look like the same food species in every frame but not identical composition.",
+    "Include food-specific traits: steam/condiments/oil/surface shine/seeds/sesame/salads/bread/bullets depending on the food identity.",
+    "Do not simplify all dishes into one texture or noodle-like texture.",
     "Use a plain bright background with no panels, no speech bubbles, no labels, no diagrams, no logos, no UI, no captions.",
     "Absolutely no typography anywhere: no readable text, no unreadable text, no fake letters, no Korean glyphs, no numbers, no handwriting, no watermark.",
     "No human head, no human skin, no hair, no clothes, no torso, no hands, no arms, no legs, no feet, no thumbs.",
     "Do not add a human presenter or a person-shaped body holding the food.",
     "Do not add balance scales, chart icons, nutrition labels, word balloons, or text-like marks.",
     "Composition: centered food mascot, full subject visible, vertical 9:16 frame, lower edge should be plain empty background with no marks.",
-    "Style: cute flat 2D sticker mascot, thick clean outline, bright appetizing colors, simple shapes, polished mobile thumbnail.",
+    "Style: cute but food-faithful flat 2D sticker mascot, thick clean outline, bright appetizing colors, simple shapes, polished mobile thumbnail.",
     "Follow the constraints above even if the scene context suggests people, hands, signs, icons, or text."
   ].join(" ");
 }
@@ -98,6 +113,38 @@ function cleanPromptText(value: string) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 240);
+}
+
+function containsNoodleIdentity(foodReference: string, identityAnchor: string) {
+  const target = `${foodReference} ${identityAnchor}`.toLowerCase();
+  const noodleTerms = [
+    "ramen",
+    "라면",
+    "우동",
+    "소면",
+    "면류",
+    "우육면",
+    "쌀국수",
+    "spaghetti",
+    "noodle",
+    "noodles",
+    "쫄면"
+  ];
+  return noodleTerms.some((term) => target.includes(term));
+}
+
+function buildDeterministicSeed(scene: SceneScript) {
+  const config = getServerConfig();
+  const identitySource = cleanPromptText(
+    `${scene.character}|${scene.sceneTitle}|${scene.imagePrompt}|${scene.visualDirection}|${scene.sceneIndex}` || ""
+  );
+  const baseSeed = config.localImageSeed;
+  const hashSeed = identitySource.split("").reduce((value, char, index) => {
+    const code = char.codePointAt(0) ?? 0;
+    return (Math.imul(value ^ code, 2654435761) + index) >>> 0;
+  }, 0);
+
+  return ((baseSeed + (hashSeed % 1_000_000_007)) % 2_147_483_647) + 1;
 }
 
 async function compressSceneImage(image: Buffer, sceneIndex: number) {

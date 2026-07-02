@@ -1,5 +1,6 @@
 import type {
   ImagesResponse,
+  TtsResponse,
   SceneScript,
   ScriptResponse,
   TopicCandidate,
@@ -62,11 +63,19 @@ export async function generateImages(scenes: SceneScript[]) {
   } satisfies ImagesResponse;
 }
 
-export function generateVideo(jobId: string, scenes: ImagesResponse["scenes"]) {
-  return postJson<VideoResponse>("/api/video", {
+export function generateAudio(jobId: string, scenes: ImagesResponse["scenes"], ttsSpeed?: number) {
+  return postJson<TtsResponse>("/api/audio", {
     jobId,
     scenes,
     voice: "verse",
+    ttsSpeed
+  });
+}
+
+export function composeVideoFromAudio(jobId: string, scenes: TtsResponse["scenes"]) {
+  return postJson<VideoResponse>("/api/compose", {
+    jobId,
+    scenes,
     burnSubtitles: true
   });
 }

@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import ffmpegPath from "ffmpeg-static";
-import type { SceneImage } from "@food-shorts/shared";
+import type { SceneAudio, SceneImage } from "@food-shorts/shared";
 import { createJobId, getGeneratedFilePath, saveGeneratedArtifact } from "@/lib/storage";
 import { getServerConfig } from "@/lib/env";
 import { createOpenAiClient } from "@/lib/ai/openai-client";
@@ -16,10 +16,17 @@ const require = createRequire(import.meta.url);
 type GenerateShortsVideoOptions = {
   jobId?: string;
   voice?: string;
+  ttsSpeed?: number;
   burnSubtitles: boolean;
 };
 
-type PreparedScene = SceneImage & {
+type PreparedScene = SceneAudio & {
+  imageFilePath: string;
+  audioFilePath: string;
+  segmentFilePath: string;
+};
+
+type PreparedBaseScene = SceneImage & {
   durationSeconds: number;
   imageFilePath: string;
   audioFilePath: string;
@@ -28,7 +35,74 @@ type PreparedScene = SceneImage & {
   subtitleEnd: string;
 };
 
-export async function generateShortsVideo(scenes: SceneImage[], options: GenerateShortsVideoOptions) {
+type SceneWithMedia = Omit<PreparedScene, "audioPath" | "audioUrl"> & {
+  audioUrl?: string;
+  audioPath?: string;
+  audioDataUrl?: string;
+};
+
+export async function generateShortsVideo(scenes: Array<SceneImage | SceneAudio>, options: GenerateShortsVideoOptions) {
+  if (scenes.length > 0 && isSceneAudio(scenes[0])) {
+    return composeShortsVideo(scenes as SceneAudio[], options);
+  }
+
+  const generated = await generateShortsAudio(scenes as SceneImage[], {
+    ...options,
+    voice: options.voice
+  });
+
+  return composeShortsVideo(generated.scenes, options);
+}
+
+export async function generateShortsAudio(scenes: SceneImage[], options: Omit<GenerateShortsVideoOptions, "burnSubtitles">) {
+  const config = getServerConfig();
+  const jobId = options.jobId ?? createJobId();
+  const workDir = path.join(os.tmpdir(), "food-shorts-video", jobId);
+  const startedAt = Date.now();
+  const logProgress = (stage: string) => {
+    console.info(`[audio:${jobId}] ${stage} ${Date.now() - startedAt}ms`);
+  };
+
+  logProgress(`start scenes=${scenes.length} tts=${config.ttsProvider}`);
+  await mkdir(workDir, { recursive: true });
+
+  const preparedScenes = buildPreparedScenes(scenes, workDir, options.ttsSpeed);
+
+  logProgress("tts prepare start");
+  await mapWithConcurrency(preparedScenes, config.ttsConcurrency, async (scene) => {
+    const audio = (
+      config.mockAi
+        ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
+        : createSceneSpeech(scene, options.voice, options.ttsSpeed, scene.durationSeconds)
+    ).then(() => {
+      logProgress(`scene ${scene.sceneIndex} audio ready`);
+    });
+
+    await audio;
+  });
+  logProgress("tts prepare done");
+
+  const scenesWithAudio = await Promise.all(
+    preparedScenes.map(async (scene) => {
+      const audio = await readFile(scene.audioFilePath);
+      const storedAudio = await saveGeneratedArtifact(jobId, `scene-${scene.sceneIndex}.mp3`, audio);
+
+      return {
+        ...scene,
+        audioUrl: storedAudio.artifactUrl,
+        audioPath: storedAudio.artifactPath,
+        audioDataUrl: toDataUrl("audio/mpeg", audio)
+      };
+    })
+  );
+
+  return {
+    jobId,
+    scenes: scenesWithAudio
+  };
+}
+
+export async function composeShortsVideo(scenes: SceneAudio[], options: GenerateShortsVideoOptions) {
   const config = getServerConfig();
   const jobId = options.jobId ?? createJobId();
   const workDir = path.join(os.tmpdir(), "food-shorts-video", jobId);
@@ -40,44 +114,18 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
   logProgress(`start scenes=${scenes.length} tts=${config.ttsProvider} size=${config.videoWidth}x${config.videoHeight}@${config.videoFps}`);
   await mkdir(workDir, { recursive: true });
 
-  const preparedScenes: PreparedScene[] = [];
-  let cursor = 0;
-
-  for (const scene of scenes) {
-    const durationSeconds = Math.max(parseDurationSeconds(scene.duration), estimateSpeechSeconds(scene.dialogue));
-    const imageFilePath = path.join(workDir, `scene-${scene.sceneIndex}.png`);
-    const audioFilePath = path.join(workDir, `scene-${scene.sceneIndex}.mp3`);
-    const segmentFilePath = path.join(workDir, `segment-${scene.sceneIndex}.mp4`);
-    const subtitleStart = formatSrtTime(cursor);
-    const subtitleEnd = formatSrtTime(cursor + durationSeconds);
-
-    preparedScenes.push({
-      ...scene,
-      durationSeconds,
-      imageFilePath,
-      audioFilePath,
-      segmentFilePath,
-      subtitleStart,
-      subtitleEnd
-    });
-
-    cursor += durationSeconds;
-  }
+  const preparedScenes = buildPreparedScenes(scenes, workDir);
 
   logProgress("prepare media start");
   await mapWithConcurrency(preparedScenes, config.ttsConcurrency, async (scene) => {
-    const image = resolveSceneImage(scene, workDir).then((result) => {
-      logProgress(`scene ${scene.sceneIndex} image ready`);
-      return result;
-    });
-    const audio = (config.mockAi
-      ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
-      : createSceneSpeech(scene, scene.audioFilePath, scene.durationSeconds, options.voice)
-    ).then(() => {
-      logProgress(`scene ${scene.sceneIndex} audio ready`);
-    });
-
-    await Promise.all([image, audio]);
+    await Promise.all([
+      resolveSceneImage(scene, workDir).then(() => {
+        logProgress(`scene ${scene.sceneIndex} image ready`);
+      }),
+      resolveSceneAudio(scene, workDir).then(() => {
+        logProgress(`scene ${scene.sceneIndex} audio ready`);
+      })
+    ]);
   });
   logProgress("prepare media done");
 
@@ -90,19 +138,27 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
   await writeFile(assFilePath, ass);
   logProgress("captions ready");
 
-  const sceneAssFiles = await Promise.all(preparedScenes.map(async (scene) => {
-    const sceneAssPath = path.join(workDir, `scene-${scene.sceneIndex}.ass`);
-    await writeFile(
-      sceneAssPath,
-      createAss(
-        [{ ...scene, subtitleStart: "0:00:00.00", subtitleEnd: formatAssTime(scene.durationSeconds) }],
-        config.videoWidth,
-        config.videoHeight
-      )
-    );
+  const sceneAssFiles = await Promise.all(
+    preparedScenes.map(async (scene) => {
+      const sceneAssPath = path.join(workDir, `scene-${scene.sceneIndex}.ass`);
+      await writeFile(
+        sceneAssPath,
+        createAss(
+          [
+            {
+              ...scene,
+              subtitleStart: "0:00:00.00",
+              subtitleEnd: formatAssTime(scene.durationSeconds)
+            }
+          ],
+          config.videoWidth,
+          config.videoHeight
+        )
+      );
 
-    return { scene, sceneAssPath };
-  }));
+      return { scene, sceneAssPath };
+    })
+  );
 
   await mapWithConcurrency(sceneAssFiles, config.videoSegmentConcurrency, async ({ scene, sceneAssPath }) => {
     await createVideoSegment(scene, sceneAssPath, options.burnSubtitles, {
@@ -148,11 +204,14 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     Promise.all(
       preparedScenes.map(async (scene) => {
         const audioBuffer = await readFile(scene.audioFilePath);
+        const stored = await saveGeneratedArtifact(jobId, `scene-${scene.sceneIndex}.mp3`, audioBuffer);
 
         return {
           sceneIndex: scene.sceneIndex,
           audio: audioBuffer,
-          stored: await saveGeneratedArtifact(jobId, `scene-${scene.sceneIndex}.mp3`, audioBuffer)
+          stored,
+          subtitleStart: scene.subtitleStart,
+          subtitleEnd: scene.subtitleEnd
         };
       })
     )
@@ -178,53 +237,84 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
 
       return {
         ...scene,
-        imageFilePath: undefined,
         audioFilePath: undefined,
+        imageFilePath: undefined,
         segmentFilePath: undefined,
-        audioUrl: sceneAudio?.stored.artifactUrl ?? `/api/generated/${jobId}/scene-${scene.sceneIndex}.mp3`,
-        audioPath: sceneAudio?.stored.artifactPath ?? `/public/generated/${jobId}/scene-${scene.sceneIndex}.mp3`,
-        audioDataUrl: sceneAudio ? toDataUrl("audio/mpeg", sceneAudio.audio) : undefined
+        audioUrl: sceneAudio?.stored.artifactUrl ?? scene.audioUrl,
+        audioPath: sceneAudio?.stored.artifactPath ?? `/api/generated/${jobId}/scene-${scene.sceneIndex}.mp3`,
+        audioDataUrl: sceneAudio ? toDataUrl("audio/mpeg", sceneAudio.audio) : scene.audioDataUrl
       };
     })
   };
 }
 
-async function createSceneSpeech(scene: SceneImage, audioFilePath: string, durationSeconds: number, requestedVoice?: string) {
+function buildPreparedScenes(scenes: Array<SceneImage | SceneAudio>, workDir: string, ttsSpeed?: number) {
+  const preparedScenes: PreparedScene[] = [];
+  let cursor = 0;
+  const normalizedSpeed = normalizeSpeed(ttsSpeed);
+
+  for (const scene of scenes) {
+    const parsedDurationSeconds = parseDurationSeconds(scene.duration);
+    const estimatedDurationSeconds = estimateSpeechSeconds(scene.dialogue);
+    const sourceDurationSeconds = "durationSeconds" in scene && Number.isFinite(scene.durationSeconds) ? scene.durationSeconds : estimatedDurationSeconds;
+    const baselineDurationSeconds = Math.max(parsedDurationSeconds, estimatedDurationSeconds, sourceDurationSeconds);
+    const durationSeconds = baselineDurationSeconds / normalizedSpeed;
+    const imageFilePath = path.join(workDir, `scene-${scene.sceneIndex}.png`);
+    const audioFilePath = path.join(workDir, `scene-${scene.sceneIndex}.mp3`);
+    const segmentFilePath = path.join(workDir, `segment-${scene.sceneIndex}.mp4`);
+    const subtitleStart = formatSrtTime(cursor);
+    const subtitleEnd = formatSrtTime(cursor + durationSeconds);
+
+    const audioUrl = "audioUrl" in scene ? scene.audioUrl : undefined;
+    const audioPath = "audioPath" in scene ? scene.audioPath : undefined;
+    const audioDataUrl = "audioDataUrl" in scene ? scene.audioDataUrl : undefined;
+
+    preparedScenes.push({
+      ...scene,
+      durationSeconds,
+      imageFilePath,
+      audioFilePath,
+      segmentFilePath,
+      subtitleStart,
+      subtitleEnd,
+      audioUrl: audioUrl ?? `/api/generated/${extractJobIdOrEmpty(scene.imageUrl)}/scene-${scene.sceneIndex}.mp3`,
+      audioPath: audioPath ?? `/public/generated/${extractJobIdOrEmpty(scene.imageUrl)}/scene-${scene.sceneIndex}.mp3`,
+      audioDataUrl
+    });
+    cursor += durationSeconds;
+  }
+
+  return preparedScenes;
+}
+
+async function createSceneSpeech(
+  scene: SceneWithMedia,
+  requestedVoice: string | undefined,
+  requestedSpeed: number | undefined,
+  durationSeconds: number
+) {
   const runtimeConfig = getServerConfig();
+  const targetSpeed = normalizeSpeed(requestedSpeed);
+  const sourceAudioPath = `${scene.audioFilePath}.source`;
 
   if (runtimeConfig.ttsProvider === "local") {
-    const sourceAudioPath = `${audioFilePath}.source`;
-    let sourceAudio: Buffer;
-
     try {
-      sourceAudio = await createLocalTtsAudio({ text: scene.dialogue });
+      const sourceAudio = await createLocalTtsAudio({
+        text: scene.dialogue,
+        speed: targetSpeed
+      });
+      await writeFile(sourceAudioPath, sourceAudio);
+      await writeAudioWithSpeed(sourceAudioPath, scene.audioFilePath, targetSpeed);
+      return;
     } catch (error) {
       console.warn(
         `[video] local TTS failed for scene ${scene.sceneIndex}; falling back to silent audio: ${
           error instanceof Error ? error.message : String(error)
         }`
       );
-      await createSilentAudio(audioFilePath, durationSeconds);
+      await createSilentAudio(scene.audioFilePath, durationSeconds);
       return;
     }
-
-    await writeFile(sourceAudioPath, sourceAudio);
-    await runFfmpeg([
-      "-y",
-      "-i",
-      sourceAudioPath,
-      "-vn",
-      "-ar",
-      "44100",
-      "-ac",
-      "2",
-      "-q:a",
-      "4",
-      "-codec:a",
-      "libmp3lame",
-      audioFilePath
-    ]);
-    return;
   }
 
   const { client, config } = createOpenAiClient();
@@ -235,8 +325,52 @@ async function createSceneSpeech(scene: SceneImage, audioFilePath: string, durat
     response_format: "mp3",
     instructions: `Speak Korean quickly and expressively for YouTube Shorts. Voice tone guide: ${scene.voiceTone}`
   } as never);
+  const openAiAudio = Buffer.from(await speech.arrayBuffer());
+  await writeFile(sourceAudioPath, openAiAudio);
+  await writeAudioWithSpeed(sourceAudioPath, scene.audioFilePath, targetSpeed);
+}
 
-  await writeFile(audioFilePath, Buffer.from(await speech.arrayBuffer()));
+async function writeAudioWithSpeed(sourcePath: string, outputPath: string, speed: number) {
+  if (speed > 1.02 || speed < 0.98) {
+    await runFfmpeg([
+      "-y",
+      "-i",
+      sourcePath,
+      "-vn",
+      "-ar",
+      "44100",
+      "-ac",
+      "2",
+      "-filter:a",
+      buildTempoFilter(speed),
+      "-q:a",
+      "4",
+      "-codec:a",
+      "libmp3lame",
+      outputPath
+    ]);
+    return;
+  }
+
+  await runFfmpeg([
+    "-y",
+    "-i",
+    sourcePath,
+    "-vn",
+    "-ar",
+    "44100",
+    "-ac",
+    "2",
+    "-q:a",
+    "4",
+    "-codec:a",
+    "libmp3lame",
+    outputPath
+  ]);
+}
+
+function isSceneAudio(scene: SceneImage | SceneAudio): scene is SceneAudio {
+  return "audioUrl" in scene && "audioPath" in scene;
 }
 
 async function createSilentAudio(audioFilePath: string, durationSeconds: number) {
@@ -315,7 +449,7 @@ async function createVideoSegment(
   ]);
 }
 
-async function resolveSceneImage(scene: SceneImage, workDir: string) {
+async function resolveSceneImage(scene: SceneWithMedia, workDir: string) {
   const outputPath = path.join(workDir, `scene-${scene.sceneIndex}.png`);
 
   if (scene.imageDataUrl) {
@@ -349,7 +483,48 @@ async function resolveSceneImage(scene: SceneImage, workDir: string) {
   throw new Error(`Scene ${scene.sceneIndex} 이미지 파일을 찾지 못했습니다. 이미지를 다시 생성한 뒤 시도해 주세요.`);
 }
 
-function runFfmpeg(args: string[]) {
+async function resolveSceneAudio(scene: SceneAudio, workDir: string) {
+  const outputPath = path.join(workDir, `scene-${scene.sceneIndex}.mp3`);
+
+  if (scene.audioDataUrl) {
+    await writeFile(outputPath, decodeDataUrl(scene.audioDataUrl));
+    return outputPath;
+  }
+
+  const localCandidates: string[] = [];
+  const candidatePaths = [scene.audioPath, scene.audioUrl]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .flatMap((value) => {
+      const derived = getGeneratedLocalPath(value);
+      return derived ? [derived] : [];
+    });
+
+  for (const candidate of candidatePaths) {
+    localCandidates.push(candidate);
+  }
+
+  for (const candidate of localCandidates) {
+    try {
+      await writeFile(outputPath, await readFile(candidate));
+      return outputPath;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  if (scene.audioUrl.startsWith("http")) {
+    const response = await fetch(scene.audioUrl);
+    if (!response.ok) {
+      throw new Error(`Scene ${scene.sceneIndex} 오디오를 불러오지 못했습니다. (${response.status})`);
+    }
+    await writeFile(outputPath, Buffer.from(await response.arrayBuffer()));
+    return outputPath;
+  }
+
+  throw new Error(`Scene ${scene.sceneIndex} 오디오 파일을 찾지 못했습니다.`);
+}
+
+async function runFfmpeg(args: string[]) {
   return new Promise<void>(async (resolve, reject) => {
     const binaryPath = await resolveFfmpegPath();
 
@@ -371,7 +546,6 @@ function runFfmpeg(args: string[]) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-
     child.on("error", (error) => {
       if (settled) return;
       settled = true;
@@ -423,6 +597,18 @@ function resolvePackageFfmpegPath() {
 function parseDurationSeconds(duration: string) {
   const match = duration.match(/(\d+(?:\.\d+)?)/);
   return match ? Number(match[1]) : 5;
+}
+
+function normalizeSpeed(speed: number | undefined): number {
+  if (typeof speed !== "number" || !Number.isFinite(speed)) {
+    return 1;
+  }
+
+  return Math.min(2, Math.max(0.5, speed));
+}
+
+function buildTempoFilter(speed: number) {
+  return `atempo=${speed.toFixed(2)}`;
 }
 
 function estimateSpeechSeconds(text: string) {
@@ -524,10 +710,23 @@ function extractJobId(value: string) {
   return match?.[1];
 }
 
+function extractJobIdOrEmpty(value: string) {
+  return extractJobId(value) ?? "shared";
+}
+
+function getGeneratedLocalPath(value: string) {
+  const match = value.match(/generated\/([^/]+)\/([^/?#]+)(?:\?.*)?$/);
+  if (!match) {
+    return null;
+  }
+
+  return getGeneratedFilePath(match[1], match[2]);
+}
+
 function decodeDataUrl(dataUrl: string) {
   const match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
   if (!match) {
-    throw new Error("이미지 data URL 형식이 올바르지 않습니다.");
+    throw new Error("data URL 형식이 올바르지 않습니다.");
   }
   return Buffer.from(match[1], "base64");
 }

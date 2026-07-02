@@ -3,6 +3,8 @@ const endpoints = [
   { href: "/api/topics", label: "POST /api/topics" },
   { href: "/api/script", label: "POST /api/script" },
   { href: "/api/images", label: "POST /api/images" },
+  { href: "/api/audio", label: "POST /api/audio" },
+  { href: "/api/compose", label: "POST /api/compose" },
   { href: "/api/video", label: "POST /api/video" }
 ];
 

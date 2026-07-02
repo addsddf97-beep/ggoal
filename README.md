@@ -115,7 +115,7 @@ LOCAL_IMAGE_TIMEOUT_MS=180000
 IMAGE_CONCURRENCY=1
 
 TTS_PROVIDER=local
-LOCAL_TTS_BASE_URL=https://w3mzn1l1ted0.shares.zrok.io
+LOCAL_TTS_BASE_URL=https://cjpj8cqqlnq0.shares.zrok.io
 LOCAL_TTS_VOICE=유나
 LOCAL_TTS_LANGUAGE=ko-KR
 LOCAL_TTS_RATE=1
@@ -157,7 +157,9 @@ npm run dev
 | `POST` | `/api/topics` | 음식/아이디어 기반 주제 후보 생성 |
 | `POST` | `/api/script` | 선택 주제 기반 숏츠 대본 생성 |
 | `POST` | `/api/images` | FLUX.2 mflux 기반 씬 이미지 생성 |
-| `POST` | `/api/video` | TTS, 자막, 이미지 기반 MP4 합성 |
+| `POST` | `/api/audio` | 씬별 TTS 생성 |
+| `POST` | `/api/compose` | TTS·자막·영상 합성 |
+| `POST` | `/api/video` | 기존 하위호환 경로: 이미지→영상 전체 처리 |
 | `GET` | `/api/generated/{jobId}/{filename}` | 생성 파일 조회 |
 
 ## Model Endpoints
@@ -166,7 +168,7 @@ npm run dev
 | --- | --- | --- |
 | Text | `https://ym1mvbhf9e0w.shares.zrok.io` | `/health`, `/v1/chat/completions` |
 | Image | `https://8cauqh4loyzr.shares.zrok.io` | `/generate_file` |
-| TTS | `https://w3mzn1l1ted0.shares.zrok.io` | `/health`, `/tts/voices`, `/tts`, `/audio/{filename}.wav` |
+| TTS | `https://cjpj8cqqlnq0.shares.zrok.io` | `/health`, `/tts/voices`, `/tts`, `/audio/{filename}.wav` |
 
 ## Demo Scenario
 

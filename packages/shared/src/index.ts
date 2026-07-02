@@ -36,6 +36,20 @@ export const sceneSchema = z.object({
   imagePrompt: z.string().min(1)
 });
 
+const videoVoiceSchema = z.enum([
+  "alloy",
+  "ash",
+  "ballad",
+  "coral",
+  "echo",
+  "fable",
+  "onyx",
+  "nova",
+  "sage",
+  "shimmer",
+  "verse"
+]);
+
 export const scriptSchema = z.object({
   title: z.string().min(1),
   hook: z.string().min(1),
@@ -49,7 +63,7 @@ export const sceneImageSchema = sceneSchema.extend({
   imageDataUrl: z.string().min(1).optional()
 });
 
-export const sceneVideoSchema = sceneImageSchema.extend({
+export const sceneAudioSchema = sceneImageSchema.extend({
   audioUrl: z.string().min(1),
   audioPath: z.string().min(1),
   audioDataUrl: z.string().min(1).optional(),
@@ -57,6 +71,8 @@ export const sceneVideoSchema = sceneImageSchema.extend({
   subtitleStart: z.string().min(1),
   subtitleEnd: z.string().min(1)
 });
+
+export const sceneVideoSchema = sceneAudioSchema;
 
 export const topicsRequestSchema = z.object({
   idea: z.string().trim().min(1).max(240)
@@ -75,6 +91,18 @@ export const scriptResponseSchema = z.object({
   script: scriptSchema
 });
 
+export const ttsRequestSchema = z.object({
+  jobId: z.string().trim().min(1).optional(),
+  scenes: z.array(sceneImageSchema).min(1).max(10),
+  voice: videoVoiceSchema.optional(),
+  ttsSpeed: z.number().min(0.5).max(2).optional()
+});
+
+export const ttsResponseSchema = z.object({
+  jobId: z.string().min(1),
+  scenes: z.array(sceneAudioSchema).min(1)
+});
+
 export const imagesRequestSchema = z.object({
   jobId: z.string().trim().min(1).optional(),
   scenes: z.array(sceneSchema).min(1).max(10)
@@ -85,14 +113,24 @@ export const imagesResponseSchema = z.object({
   scenes: z.array(sceneImageSchema).min(1)
 });
 
-export const videoRequestSchema = z.object({
+const composeRequestSchemaBase = {
   jobId: z.string().trim().min(1).optional(),
-  scenes: z.array(sceneImageSchema).min(1).max(10),
-  voice: z
-    .enum(["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"])
-    .optional(),
   burnSubtitles: z.boolean().optional()
+} as const;
+
+export const composeRequestSchema = z.object({
+  ...composeRequestSchemaBase,
+  scenes: z.array(sceneAudioSchema).min(1).max(10),
+  voice: videoVoiceSchema.optional()
 });
+
+export const legacyVideoRequestSchema = z.object({
+  ...composeRequestSchemaBase,
+  scenes: z.array(sceneImageSchema).min(1).max(10),
+  voice: videoVoiceSchema.optional()
+});
+
+export const videoRequestSchema = z.union([composeRequestSchema, legacyVideoRequestSchema]);
 
 export const videoResponseSchema = z.object({
   jobId: z.string().min(1),
@@ -116,10 +154,13 @@ export type SceneScript = z.infer<typeof sceneSchema>;
 export type ShortsScript = z.infer<typeof scriptSchema>;
 export type SceneImage = z.infer<typeof sceneImageSchema>;
 export type SceneVideo = z.infer<typeof sceneVideoSchema>;
+export type SceneAudio = z.infer<typeof sceneAudioSchema>;
 export type TopicsResponse = z.infer<typeof topicsResponseSchema>;
 export type ScriptResponse = z.infer<typeof scriptResponseSchema>;
 export type ImagesResponse = z.infer<typeof imagesResponseSchema>;
+export type TtsResponse = z.infer<typeof ttsResponseSchema>;
 export type VideoResponse = z.infer<typeof videoResponseSchema>;
+export type ComposeVideoRequest = z.infer<typeof composeRequestSchema>;
 
 export type ApiErrorResponse = {
   error: string;

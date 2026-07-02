@@ -3,6 +3,7 @@ import { getServerConfig } from "@/lib/env";
 
 type LocalTtsOptions = {
   text: string;
+  speed?: number;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -16,9 +17,10 @@ class LocalTtsRequestError extends Error {
   }
 }
 
-export async function createLocalTtsAudio({ text }: LocalTtsOptions) {
+export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
   const config = getServerConfig();
   const baseUrl = normalizeBaseUrl(config.localTtsBaseUrl);
+  const normalizedSpeed = typeof speed === "number" && Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : undefined;
   const requestBodies = [
     {
       text,
@@ -26,20 +28,23 @@ export async function createLocalTtsAudio({ text }: LocalTtsOptions) {
       language: config.localTtsLanguage,
       lang: config.localTtsLanguage,
       rate: config.localTtsRate,
-      volume: config.localTtsVolume,
+      speed: normalizedSpeed,
       format: "wav"
     },
     {
       text,
       voice: config.localTtsVoice,
       rate: config.localTtsRate,
-      volume: config.localTtsVolume
+      speed: normalizedSpeed,
+      volume: config.localTtsVolume,
     },
     {
       input: text,
       voice: config.localTtsVoice,
-      language: config.localTtsLanguage
+      language: config.localTtsLanguage,
+      speed: normalizedSpeed
     },
+    { text, speed: normalizedSpeed },
     { text }
   ];
   let lastError: unknown;

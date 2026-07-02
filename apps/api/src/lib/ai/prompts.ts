@@ -44,6 +44,9 @@ ${selectedTopicJson}
 각 씬의 imagePrompt는 영어로 작성한다. 이미지 자체에는 텍스트를 넣지 말고, 한국어 자막이 들어갈 하단 여백을 고려해라.
 각 imagePrompt는 음식 자체에 단순한 눈과 입만 붙은 마스코트 느낌으로 쓴다. 사람 머리, 피부, 머리카락, 옷, 몸통, 손, 팔, 다리는 금지한다.
 음식 캐릭터가 자기소개하는 느낌은 표정, 입 모양, 음식의 기울어진 포즈, 김, 반짝임, 재료 표현으로만 만든다.
+각 이미지 프롬프트에는 [음식명]-[주요 재료]-[형태]-[색상]-[질감] 형식의 단서를 넣어 음식 고유형태를 고정해라.
+같은 음식이어도 씬마다 구도/동작/표정이 달라져야 하며, 동일한 포즈 반복은 피한다.
+라면/국수류가 아닌 음식은 면발, 라면 봉지, 스프, 국물 거품을 연출하지 않는다.
 말풍선, 패널, 저울, 차트, 영양표, 아이콘, 글자처럼 보이는 장식은 금지한다.
 이미지 스타일은 cute flat 2D food sticker mascot, expressive face, vivid appetizing colors, Korean short-form thumbnail, vertical shorts composition, clean space for subtitle로 통일한다.
 `.trim();

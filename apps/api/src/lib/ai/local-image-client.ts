@@ -3,6 +3,10 @@ import { getServerConfig } from "@/lib/env";
 
 type JsonRecord = Record<string, unknown>;
 
+type ImageGenerationOptions = {
+  seed?: number;
+};
+
 class LocalImageRequestError extends Error {
   constructor(
     readonly status: number,
@@ -12,26 +16,32 @@ class LocalImageRequestError extends Error {
   }
 }
 
-export async function createLocalImage(prompt: string) {
+export async function createLocalImage(prompt: string, options: ImageGenerationOptions = {}) {
   const config = getServerConfig();
   const baseUrl = normalizeBaseUrl(config.localImageBaseUrl);
+  const seed = options.seed ?? config.localImageSeed;
 
   if (config.localImageApi === "comfyui") {
-    return createImageWithComfyUi(baseUrl, prompt, config);
+    return createImageWithComfyUi(baseUrl, prompt, config, seed);
   }
 
   try {
-    return await createImageWithFileApi(baseUrl, prompt, config);
+    return await createImageWithFileApi(baseUrl, prompt, config, seed);
   } catch (error) {
     if (!(error instanceof LocalImageRequestError) || ![400, 404, 415, 422].includes(error.status)) {
       throw error;
     }
 
-    return createImageWithJsonApi(baseUrl, prompt, config, error);
+    return createImageWithJsonApi(baseUrl, prompt, config, error, seed);
   }
 }
 
-async function createImageWithComfyUi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
+async function createImageWithComfyUi(
+  baseUrl: string,
+  prompt: string,
+  config: ReturnType<typeof getServerConfig>,
+  seed: number
+) {
   const deadline = Date.now() + config.localImageTimeoutMs;
   const { width, height } = parseImageSize(config.localImageSize);
   const checkpoint = config.localImageModel || (await fetchFirstComfyCheckpoint(baseUrl, deadline));
@@ -40,7 +50,8 @@ async function createImageWithComfyUi(baseUrl: string, prompt: string, config: R
     config,
     height,
     prompt,
-    width
+    width,
+    seed
   });
   const promptId = await queueComfyPrompt(baseUrl, workflow, deadline);
   const imageReference = await pollComfyImageReference(baseUrl, promptId, deadline);
@@ -257,13 +268,15 @@ function buildComfyTxt2ImgWorkflow({
   config,
   height,
   prompt,
-  width
+  width,
+  seed
 }: {
   checkpoint: string;
   config: ReturnType<typeof getServerConfig>;
   height: number;
   prompt: string;
   width: number;
+  seed: number;
 }) {
   return {
     "3": {
@@ -277,7 +290,7 @@ function buildComfyTxt2ImgWorkflow({
         positive: ["6", 0],
         sampler_name: config.localImageSampler,
         scheduler: config.localImageScheduler,
-        seed: config.localImageSeed,
+        seed,
         steps: config.localImageSteps
       }
     },
@@ -326,7 +339,12 @@ function buildComfyTxt2ImgWorkflow({
   };
 }
 
-async function createImageWithFileApi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
+async function createImageWithFileApi(
+  baseUrl: string,
+  prompt: string,
+  config: ReturnType<typeof getServerConfig>,
+  seed: number
+) {
   const { width, height } = parseImageSize(config.localImageSize);
   const response = await fetchWithTimeout(
     new URL("/generate_file", baseUrl),
@@ -339,8 +357,12 @@ async function createImageWithFileApi(baseUrl: string, prompt: string, config: R
         prompt,
         width,
         height,
+        model: config.localImageModel,
+        cfg_scale: config.localImageCfgScale,
+        temperature: config.localImageTemperature,
+        negative_prompt: config.localImageNegativePrompt,
         steps: config.localImageSteps,
-        seed: config.localImageSeed
+        seed
       })
     },
     config.localImageTimeoutMs
@@ -353,7 +375,8 @@ async function createImageWithJsonApi(
   baseUrl: string,
   prompt: string,
   config: ReturnType<typeof getServerConfig>,
-  previousError: unknown
+  previousError: unknown,
+  seed: number
 ) {
   const response = await fetchWithTimeout(
     new URL("/v1/images/generations", baseUrl),
@@ -366,6 +389,7 @@ async function createImageWithJsonApi(
         model: config.localImageModel,
         prompt,
         n: 1,
+        seed,
         size: config.localImageSize,
         response_format: "b64_json"
       })

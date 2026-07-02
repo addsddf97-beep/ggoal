@@ -1,6 +1,6 @@
 "use client";
 
-import type { ImagesResponse, ShortsScript, TopicCandidate, VideoResponse } from "@food-shorts/shared";
+import type { ImagesResponse, ShortsScript, TtsResponse, TopicCandidate, VideoResponse } from "@food-shorts/shared";
 import {
   ArrowLeft,
   Captions,
@@ -16,7 +16,14 @@ import {
   WandSparkles
 } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
-import { createAbsoluteApiUrl, generateImages, generateScript, generateTopics, generateVideo } from "@/lib/api";
+import {
+  createAbsoluteApiUrl,
+  composeVideoFromAudio,
+  generateAudio,
+  generateImages,
+  generateScript,
+  generateTopics
+} from "@/lib/api";
 import { downloadJson, formatPromptsForClipboard, formatScriptForClipboard } from "@/lib/format";
 import { CopyButton } from "@/components/CopyButton";
 import { SceneResultCard } from "@/components/SceneResultCard";
@@ -32,8 +39,10 @@ export default function Home() {
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const [script, setScript] = useState<ShortsScript | null>(null);
   const [images, setImages] = useState<ImagesResponse | null>(null);
+  const [audio, setAudio] = useState<TtsResponse | null>(null);
   const [video, setVideo] = useState<VideoResponse | null>(null);
-  const [loading, setLoading] = useState<"topics" | "script" | "images" | "video" | null>(null);
+  const [loading, setLoading] = useState<"topics" | "script" | "images" | "audio" | "video" | null>(null);
+  const [ttsSpeed, setTtsSpeed] = useState(1);
   const [error, setError] = useState("");
 
   const selectedTopic = useMemo(
@@ -52,6 +61,7 @@ export default function Home() {
     setLoading("topics");
     setImages(null);
     setScript(null);
+    setAudio(null);
     setVideo(null);
     setSelectedTopicId("");
 
@@ -76,6 +86,7 @@ export default function Home() {
     setError("");
     setLoading("script");
     setImages(null);
+    setAudio(null);
     setVideo(null);
 
     try {
@@ -97,6 +108,7 @@ export default function Home() {
 
     setError("");
     setLoading("images");
+    setAudio(null);
     setVideo(null);
 
     try {
@@ -110,9 +122,29 @@ export default function Home() {
     }
   }
 
-  async function handleVideo() {
+  async function handleAudio() {
     if (!images) {
       setError("이미지를 먼저 생성해 주세요.");
+      return;
+    }
+
+    setError("");
+    setLoading("audio");
+
+    try {
+      const response = await generateAudio(images.jobId, images.scenes, ttsSpeed);
+      setAudio(response);
+      setStep(5);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "TTS 생성에 실패했습니다.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleCompose() {
+    if (!audio) {
+      setError("TTS 결과를 먼저 생성해 주세요.");
       return;
     }
 
@@ -120,7 +152,7 @@ export default function Home() {
     setLoading("video");
 
     try {
-      const response = await generateVideo(images.jobId, images.scenes);
+      const response = await composeVideoFromAudio(audio.jobId, audio.scenes);
       setVideo(response);
       setStep(5);
     } catch (requestError) {
@@ -136,6 +168,7 @@ export default function Home() {
     setSelectedTopicId("");
     setScript(null);
     setImages(null);
+    setAudio(null);
     setVideo(null);
     setError("");
   }
@@ -143,7 +176,6 @@ export default function Home() {
   const scriptClipboard = script ? formatScriptForClipboard(script) : "";
   const promptClipboard = script ? formatPromptsForClipboard(script.scenes) : "";
   const videoSrc = video?.videoDataUrl ?? (video ? createAbsoluteApiUrl(video.videoUrl) : "");
-  const audioSrc = video?.audioDataUrl ?? (video ? createAbsoluteApiUrl(video.audioUrl) : "");
   const srtSrc = video?.srtText
     ? `data:text/plain;charset=utf-8,${encodeURIComponent(video.srtText)}`
     : video
@@ -375,19 +407,36 @@ export default function Home() {
                     JSON
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={handleVideo}
-                  disabled={!images || loading !== null}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-bold text-white transition hover:bg-punch disabled:bg-ink/25"
-                >
-                  {loading === "video" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Film className="h-4 w-4" aria-hidden />
-                  )}
-                  영상 합성
-                </button>
+                {images ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex min-h-9 flex-1 min-w-0 items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 text-sm font-bold text-ink">
+                      <span className="whitespace-nowrap">TTS 배속</span>
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={2}
+                        step={0.05}
+                        value={ttsSpeed}
+                        onChange={(event) => setTtsSpeed(Number(event.target.value))}
+                        className="h-2 w-40 flex-1 cursor-pointer"
+                      />
+                      <span className="min-w-14 text-right">{ttsSpeed.toFixed(2)}x</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAudio}
+                      disabled={!images || loading !== null}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-bold text-white transition hover:bg-punch disabled:bg-ink/25"
+                    >
+                      {loading === "audio" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Mic2 className="h-4 w-4" aria-hidden />
+                      )}
+                      TTS 생성
+                    </button>
+                  </div>
+                ) : null}
               </div>
 
               {images ? (
@@ -423,18 +472,45 @@ export default function Home() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-punch">Step 5</p>
-                  <h2 className="text-xl font-black text-ink">TTS·자막·영상 합성 결과</h2>
+                  <h2 className="text-xl font-black text-ink">TTS·자막·영상 합성</h2>
                 </div>
-                {video ? (
-                  <button
-                    type="button"
-                    onClick={() => downloadJson(`${video.jobId}-video.json`, { idea, selectedTopic, script, images, video })}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-bold text-ink transition hover:border-ink"
-                  >
-                    <Download className="h-4 w-4" aria-hidden />
-                    JSON
-                  </button>
-                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {audio ? (
+                    <button
+                      type="button"
+                      onClick={handleCompose}
+                      disabled={loading !== null}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-ink px-3 text-sm font-bold text-white transition hover:bg-punch disabled:bg-ink/25"
+                    >
+                      {loading === "video" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Film className="h-4 w-4" aria-hidden />
+                      )}
+                      영상 합성
+                    </button>
+                  ) : null}
+
+                  {(video || audio) ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadJson(`${audio?.jobId ?? video?.jobId}-result.json`, {
+                          idea,
+                          selectedTopic,
+                          script,
+                          images,
+                          audio,
+                          video
+                        })
+                      }
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-ink/15 bg-white px-3 text-sm font-bold text-ink transition hover:border-ink"
+                    >
+                      <Download className="h-4 w-4" aria-hidden />
+                      JSON
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               {video ? (
@@ -509,9 +585,30 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+              ) : audio ? (
+                <div className="mt-3 grid gap-3">
+                  {audio.scenes.map((scene) => (
+                    <article key={scene.sceneIndex} className="rounded-md border border-ink/10 bg-paper p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-black text-punch">Scene {scene.sceneIndex}</p>
+                          <p className="text-sm font-bold text-ink">{scene.sceneTitle}</p>
+                        </div>
+                        <span className="rounded-md bg-mint/15 px-2.5 py-1 text-xs font-black text-ink">
+                          {scene.durationSeconds.toFixed(1)}초
+                        </span>
+                      </div>
+                      <audio
+                        controls
+                        className="mt-2 w-full"
+                        src={scene.audioDataUrl ?? createAbsoluteApiUrl(scene.audioUrl)}
+                      />
+                    </article>
+                  ))}
+                </div>
               ) : (
                 <div className="mt-3 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-8 text-center text-sm font-bold text-ink/50">
-                  씬별 이미지가 준비되면 TTS, 자막, MP4 숏츠 영상이 여기에 표시됩니다.
+                  씬별 이미지가 준비되면 먼저 TTS를 생성하고, 이어서 영상 합성으로 넘어가세요.
                 </div>
               )}
             </section>

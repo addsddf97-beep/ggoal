@@ -94,7 +94,7 @@ export function getServerConfig(): ServerConfig {
       1,
       5
     ),
-    localTtsBaseUrl: process.env.LOCAL_TTS_BASE_URL?.trim() || "https://w3mzn1l1ted0.shares.zrok.io",
+    localTtsBaseUrl: process.env.LOCAL_TTS_BASE_URL?.trim() || "https://cjpj8cqqlnq0.shares.zrok.io",
     localTtsVoice: process.env.LOCAL_TTS_VOICE?.trim() || "유나",
     localTtsLanguage: process.env.LOCAL_TTS_LANGUAGE?.trim() || "ko-KR",
     localTtsRate: parseBoundedInteger(process.env.LOCAL_TTS_RATE, 1, -10, 10),
