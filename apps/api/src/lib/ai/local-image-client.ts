@@ -387,7 +387,7 @@ async function readImageResponse(response: Response, baseUrl: string, timeoutMs:
   const buffer = Buffer.from(await response.arrayBuffer());
 
   if (!response.ok) {
-    throw new LocalImageRequestError(response.status, buffer.toString("utf8").slice(0, 1200));
+    throw new LocalImageRequestError(response.status, formatImageApiError(response.status, buffer));
   }
 
   if (contentType.includes("image") || isLikelyImageBuffer(buffer)) {
@@ -502,6 +502,23 @@ function parseImageSize(size: string) {
   const height = clampImageDimension(Number(match[2]));
 
   return { width, height };
+}
+
+function formatImageApiError(status: number, buffer: Buffer) {
+  const text = buffer.toString("utf8").slice(0, 1200);
+
+  if (status === 502 && (text.includes("zrok ui") || text.includes("<!DOCTYPE html>"))) {
+    return "이미지 생성 zrok 터널이 백엔드 서버에 연결되지 않았습니다. Public Base URL과 로컬 이미지 서버(127.0.0.1:8010) 실행 상태를 확인해 주세요.";
+  }
+
+  const normalized = text
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return `로컬 이미지 생성 API 오류 (${status}): ${normalized || text}`;
 }
 
 function clampImageDimension(value: number) {
