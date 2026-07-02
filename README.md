@@ -24,7 +24,7 @@ OLLAMA_REQUEST_TIMEOUT_MS=180000
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 IMAGE_PROVIDER=local
 LOCAL_IMAGE_API=comfyui
-LOCAL_IMAGE_BASE_URL=https://c1mjnjb23sg3.shares.zrok.io
+LOCAL_IMAGE_BASE_URL=https://m5a1acjjn9hw.shares.zrok.io
 LOCAL_IMAGE_MODEL=
 LOCAL_IMAGE_SIZE=256x256
 LOCAL_IMAGE_SEED=42
@@ -60,7 +60,7 @@ WEB_ORIGIN=http://localhost:3000
 
 텍스트 생성은 기본적으로 zrok 공유 URL `https://ym1mvbhf9e0w.shares.zrok.io`의 `local-qwen-4b` 모델을 사용합니다. 로컬 Ollama로 되돌리고 싶으면 `TEXT_AI_PROVIDER=ollama`로 바꾸면 됩니다.
 zrok 텍스트 endpoint가 60초 안에 응답하지 않으면 gateway timeout이 날 수 있으므로 모델 서버 상태와 Qwen `/no_think` 설정을 확인하세요.
-이미지 생성은 기본적으로 zrok 공유 URL `https://c1mjnjb23sg3.shares.zrok.io`의 ComfyUI API를 사용합니다. API는 `/prompt`에 txt2img workflow를 등록하고, `/history/{prompt_id}`를 polling한 뒤, `/view`로 결과 이미지를 가져옵니다. `LOCAL_IMAGE_MODEL`이 비어 있으면 `/models/checkpoints`의 첫 번째 checkpoint를 자동 선택합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
+이미지 생성은 기본적으로 zrok 공유 URL `https://m5a1acjjn9hw.shares.zrok.io`의 ComfyUI API를 사용합니다. API는 `/prompt`에 txt2img workflow를 등록하고, `/history/{prompt_id}`를 polling한 뒤, `/view`로 결과 이미지를 가져옵니다. `LOCAL_IMAGE_MODEL`이 비어 있으면 `/models/checkpoints`의 첫 번째 checkpoint를 자동 선택합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
 TTS는 기본적으로 zrok 공유 URL `https://ym1mvbhf9e0w.shares.zrok.io/tts`의 Windows System.Speech `Microsoft Heami Desktop` 음성을 사용합니다. OpenAI TTS로 되돌리고 싶으면 `TTS_PROVIDER=openai`로 바꾸면 됩니다.
 
 프론트엔드 환경변수는 `apps/web/.env.local`에 둡니다.

@@ -70,7 +70,7 @@ export function getServerConfig(): ServerConfig {
       1,
       5
     ),
-    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://c1mjnjb23sg3.shares.zrok.io",
+    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://m5a1acjjn9hw.shares.zrok.io",
     localImageModel:
       process.env.LOCAL_IMAGE_MODEL?.trim() || (localImageApi === "legacy" ? "LlamaGen GPT-XL Text-to-Image" : ""),
     localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "256x256",
