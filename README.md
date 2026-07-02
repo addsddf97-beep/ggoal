@@ -26,6 +26,16 @@
 - API Health: [https://golddaegeon-health-guide-studio-api.vercel.app/api/health](https://golddaegeon-health-guide-studio-api.vercel.app/api/health)
 - Repository: [https://github.com/iris112-sung/golddaegeon-health-guide-studio](https://github.com/iris112-sung/golddaegeon-health-guide-studio)
 
+## Screenshots
+
+### Workflow Overview
+
+![Workflow overview](docs/images/workflow-overview.png)
+
+### Script Generation
+
+![Script generation](docs/images/script-generation.png)
+
 ## Tech Stack
 
 | Layer | Stack |
