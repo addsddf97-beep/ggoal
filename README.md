@@ -102,13 +102,13 @@ ZROK_TEXT_MODEL=local-qwen-4b
 ZROK_REQUEST_TIMEOUT_MS=30000
 
 IMAGE_PROVIDER=local
-LOCAL_IMAGE_API=comfyui
-LOCAL_IMAGE_BASE_URL=https://m5a1acjjn9hw.shares.zrok.io
-LOCAL_IMAGE_MODEL=sd_xl_base_1.0.safetensors
-LOCAL_IMAGE_SIZE=256x256
+LOCAL_IMAGE_API=legacy
+LOCAL_IMAGE_BASE_URL=https://k3wnuzs69ijq.shares.zrok.io
+LOCAL_IMAGE_MODEL=FLUX.2 Klein 4B mflux 4bit
+LOCAL_IMAGE_SIZE=512x512
 LOCAL_IMAGE_SEED=42
 LOCAL_IMAGE_CFG_SCALE=7.5
-LOCAL_IMAGE_STEPS=10
+LOCAL_IMAGE_STEPS=4
 LOCAL_IMAGE_SAMPLER=euler
 LOCAL_IMAGE_SCHEDULER=normal
 LOCAL_IMAGE_TIMEOUT_MS=180000
@@ -156,7 +156,7 @@ npm run dev
 | `GET` | `/api/health` | API 상태 확인 |
 | `POST` | `/api/topics` | 음식/아이디어 기반 주제 후보 생성 |
 | `POST` | `/api/script` | 선택 주제 기반 숏츠 대본 생성 |
-| `POST` | `/api/images` | ComfyUI 기반 씬 이미지 생성 |
+| `POST` | `/api/images` | FLUX.2 mflux 기반 씬 이미지 생성 |
 | `POST` | `/api/video` | TTS, 자막, 이미지 기반 MP4 합성 |
 | `GET` | `/api/generated/{jobId}/{filename}` | 생성 파일 조회 |
 
@@ -165,7 +165,7 @@ npm run dev
 | Model Role | Base URL | Main Endpoints |
 | --- | --- | --- |
 | Text | `https://ym1mvbhf9e0w.shares.zrok.io` | `/health`, `/v1/chat/completions` |
-| Image | `https://m5a1acjjn9hw.shares.zrok.io` | `/prompt`, `/history/{prompt_id}`, `/view` |
+| Image | `https://k3wnuzs69ijq.shares.zrok.io` | `/generate_file` |
 | TTS | `https://w3mzn1l1ted0.shares.zrok.io` | `/health`, `/tts/voices`, `/tts`, `/audio/{filename}.wav` |
 
 ## Demo Scenario

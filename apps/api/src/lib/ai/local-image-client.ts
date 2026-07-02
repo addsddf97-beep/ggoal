@@ -327,6 +327,7 @@ function buildComfyTxt2ImgWorkflow({
 }
 
 async function createImageWithFileApi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
+  const { width, height } = parseImageSize(config.localImageSize);
   const response = await fetchWithTimeout(
     new URL("/generate_file", baseUrl),
     {
@@ -336,10 +337,10 @@ async function createImageWithFileApi(baseUrl: string, prompt: string, config: R
       },
       body: JSON.stringify({
         prompt,
-        seed: config.localImageSeed,
-        cfg_scale: config.localImageCfgScale,
-        temperature: config.localImageTemperature,
-        size: config.localImageSize
+        width,
+        height,
+        steps: config.localImageSteps,
+        seed: config.localImageSeed
       })
     },
     config.localImageTimeoutMs

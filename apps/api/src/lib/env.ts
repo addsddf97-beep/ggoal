@@ -64,21 +64,16 @@ export function getServerConfig(): ServerConfig {
     imageModel: process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1.5",
     imageQuality: process.env.OPENAI_IMAGE_QUALITY?.trim() || "low",
     localImageApi,
-    imageConcurrency: parseBoundedInteger(
-      process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY,
-      imageProvider === "local" && localImageApi === "legacy" ? 1 : 4,
-      1,
-      5
-    ),
-    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://m5a1acjjn9hw.shares.zrok.io",
+    imageConcurrency: parseBoundedInteger(process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY, 4, 1, 5),
+    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://k3wnuzs69ijq.shares.zrok.io",
     localImageModel:
       process.env.LOCAL_IMAGE_MODEL?.trim() ||
-      (localImageApi === "legacy" ? "LlamaGen GPT-XL Text-to-Image" : "sd_xl_base_1.0.safetensors"),
-    localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "256x256",
+      (localImageApi === "legacy" ? "FLUX.2 Klein 4B mflux 4bit" : "sd_xl_base_1.0.safetensors"),
+    localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "512x512",
     localImageSeed: parseBoundedInteger(process.env.LOCAL_IMAGE_SEED, 42, 0, 2147483647),
     localImageCfgScale: parseBoundedNumber(process.env.LOCAL_IMAGE_CFG_SCALE, 7.5, 0, 30),
     localImageTemperature: parseBoundedNumber(process.env.LOCAL_IMAGE_TEMPERATURE, 1.0, 0, 5),
-    localImageSteps: parseBoundedInteger(process.env.LOCAL_IMAGE_STEPS, 10, 1, 80),
+    localImageSteps: parseBoundedInteger(process.env.LOCAL_IMAGE_STEPS, 4, 1, 80),
     localImageSampler: process.env.LOCAL_IMAGE_SAMPLER?.trim() || "euler",
     localImageScheduler: process.env.LOCAL_IMAGE_SCHEDULER?.trim() || "normal",
     localImageNegativePrompt:
@@ -155,7 +150,7 @@ function parseImageProvider(value: string | undefined): "local" | "openai" {
 
 function parseLocalImageApi(value: string | undefined): "comfyui" | "legacy" {
   const normalized = value?.trim().toLowerCase();
-  return normalized === "legacy" || normalized === "llamagen" ? "legacy" : "comfyui";
+  return normalized === "comfyui" ? "comfyui" : "legacy";
 }
 
 function parseTtsProvider(value: string | undefined): "local" | "openai" {
