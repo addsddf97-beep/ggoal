@@ -3,6 +3,7 @@ import { generateImagesForScenes } from "@/lib/ai/image-generator";
 import { handleApiError, jsonResponse, readJson } from "@/lib/http";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {

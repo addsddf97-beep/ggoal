@@ -110,7 +110,7 @@ async function pollComfyImageReference(baseUrl: string, promptId: string, deadli
     const response = await fetchWithTimeout(
       new URL(`/history/${encodeURIComponent(promptId)}`, baseUrl),
       {},
-      Math.min(10000, remainingTimeout(deadline))
+      Math.min(30000, remainingTimeout(deadline))
     );
     const text = await response.text();
 
