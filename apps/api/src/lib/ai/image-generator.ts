@@ -37,16 +37,7 @@ export async function generateImagesForScenes(scenes: SceneScript[], requestedJo
 
 async function createSceneImage(scene: SceneScript) {
   const runtimeConfig = getServerConfig();
-  const prompt = [
-    scene.imagePrompt,
-    `The main subject must be an anthropomorphic ${scene.character || "food"} character, clearly visible and facing the camera.`,
-    "Make the food look like it is personally introducing itself and explaining its own nutrition information with expressive gestures.",
-    "Show simple visual nutrition cues such as ingredient icons, energy sparkles, balance scale, or portion plate, but do not include readable words or numbers.",
-    "No human presenter; the food character is the speaker and center of the scene.",
-    "Use a vertical 9:16 shorts composition.",
-    "Do not render readable text, captions, logos, watermarks, or UI.",
-    "Keep the bottom 20 percent visually clean for Korean subtitles added later."
-  ].join(" ");
+  const prompt = buildSceneImagePrompt(scene);
 
   if (runtimeConfig.imageProvider === "local") {
     return createLocalImage(prompt);
@@ -78,6 +69,36 @@ async function createSceneImage(scene: SceneScript) {
   }
 
   throw new Error("OpenAI 이미지 응답이 비어 있습니다.");
+}
+
+function buildSceneImagePrompt(scene: SceneScript) {
+  const foodSubject = cleanPromptText(scene.character || scene.sceneTitle || "food");
+  const sceneContext = cleanPromptText([scene.sceneTitle, scene.visualDirection, scene.nutritionPoint].join(", "));
+
+  return [
+    "Create one clean vertical Korean shorts cartoon sticker illustration.",
+    `Main subject: a cute ${foodSubject} food mascot. The mascot is the actual food item itself, not a person.`,
+    "The food item has only a simple face directly on the food surface: eyes, eyebrows, mouth, and cheek blush are allowed.",
+    "The food may use its facial expression, open mouth, tilt, bounce pose, steam, sparkle, sauce, ingredients, and portion shape to feel like it is introducing itself.",
+    "Keep the body shape faithful to the food: bowl stays a bowl, noodle stays noodles, tomato stays tomato, carrot stays carrot.",
+    "Use a plain bright background with no panels, no speech bubbles, no labels, no diagrams, no logos, no UI, no captions.",
+    "Absolutely no readable or unreadable text anywhere, no fake letters, no Korean glyphs, no numbers, no watermark.",
+    "No human head, no human skin, no hair, no clothes, no torso, no hands, no arms, no legs, no feet, no thumbs.",
+    "Do not add a human presenter or a person-shaped body holding the food.",
+    "Do not add balance scales, chart icons, nutrition labels, word balloons, or text-like marks.",
+    "Composition: centered food mascot, full subject visible, vertical 9:16 frame, clean bottom 25 percent reserved for subtitles.",
+    "Style: cute flat 2D sticker mascot, thick clean outline, bright appetizing colors, simple shapes, polished mobile thumbnail.",
+    `Scene context for mood only: ${sceneContext}.`,
+    "Follow the constraints above even if the scene context suggests people, hands, signs, icons, or text."
+  ].join(" ");
+}
+
+function cleanPromptText(value: string) {
+  return value
+    .replace(/[{}[\]<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
 }
 
 async function compressSceneImage(image: Buffer, sceneIndex: number) {
