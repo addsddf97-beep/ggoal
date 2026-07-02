@@ -31,6 +31,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     });
   } catch (error) {
+    if (isMissingFileError(error)) {
+      return new Response("Not found", { status: 404, headers: corsHeaders });
+    }
+
     return handleApiError(error);
   }
 }
@@ -47,4 +51,12 @@ function getContentType(filename: string) {
   if (filename.endsWith(".png")) return "image/png";
   if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
   return "application/octet-stream";
+}
+
+function isMissingFileError(error: unknown) {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }

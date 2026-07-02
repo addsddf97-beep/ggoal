@@ -147,9 +147,12 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     saveGeneratedArtifact(jobId, "voiceover.mp3", audio),
     Promise.all(
       preparedScenes.map(async (scene) => {
+        const audioBuffer = await readFile(scene.audioFilePath);
+
         return {
           sceneIndex: scene.sceneIndex,
-          stored: await saveGeneratedArtifact(jobId, `scene-${scene.sceneIndex}.mp3`, await readFile(scene.audioFilePath))
+          audio: audioBuffer,
+          stored: await saveGeneratedArtifact(jobId, `scene-${scene.sceneIndex}.mp3`, audioBuffer)
         };
       })
     )
@@ -169,6 +172,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     assText: ass,
     audioUrl: storedAudio.artifactUrl,
     audioPath: storedAudio.artifactPath,
+    audioDataUrl: toDataUrl("audio/mpeg", audio),
     scenes: preparedScenes.map((scene) => {
       const sceneAudio = storedSceneAudio.find((item) => item.sceneIndex === scene.sceneIndex);
 
@@ -178,7 +182,8 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
         audioFilePath: undefined,
         segmentFilePath: undefined,
         audioUrl: sceneAudio?.stored.artifactUrl ?? `/api/generated/${jobId}/scene-${scene.sceneIndex}.mp3`,
-        audioPath: sceneAudio?.stored.artifactPath ?? `/public/generated/${jobId}/scene-${scene.sceneIndex}.mp3`
+        audioPath: sceneAudio?.stored.artifactPath ?? `/public/generated/${jobId}/scene-${scene.sceneIndex}.mp3`,
+        audioDataUrl: sceneAudio ? toDataUrl("audio/mpeg", sceneAudio.audio) : undefined
       };
     })
   };
