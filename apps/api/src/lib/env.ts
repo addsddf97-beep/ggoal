@@ -64,7 +64,12 @@ export function getServerConfig(): ServerConfig {
     imageModel: process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1.5",
     imageQuality: process.env.OPENAI_IMAGE_QUALITY?.trim() || "low",
     localImageApi,
-    imageConcurrency: parseBoundedInteger(process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY, 4, 1, 5),
+    imageConcurrency: parseBoundedInteger(
+      process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY,
+      imageProvider === "local" && localImageApi === "legacy" ? 1 : 4,
+      1,
+      5
+    ),
     localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://k3wnuzs69ijq.shares.zrok.io",
     localImageModel:
       process.env.LOCAL_IMAGE_MODEL?.trim() ||

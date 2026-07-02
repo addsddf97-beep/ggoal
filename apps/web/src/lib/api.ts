@@ -43,8 +43,23 @@ export function generateScript(idea: string, topic: TopicCandidate) {
   return postJson<ScriptResponse>("/api/script", { idea, topic });
 }
 
-export function generateImages(scenes: SceneScript[]) {
-  return postJson<ImagesResponse>("/api/images", { scenes });
+export async function generateImages(scenes: SceneScript[]) {
+  const jobId = createClientJobId();
+  const generatedScenes: ImagesResponse["scenes"] = [];
+
+  for (const scene of scenes) {
+    const response = await postJson<ImagesResponse>("/api/images", {
+      jobId,
+      scenes: [scene]
+    });
+
+    generatedScenes.push(...response.scenes);
+  }
+
+  return {
+    jobId,
+    scenes: generatedScenes
+  } satisfies ImagesResponse;
 }
 
 export function generateVideo(jobId: string, scenes: ImagesResponse["scenes"]) {
@@ -54,4 +69,13 @@ export function generateVideo(jobId: string, scenes: ImagesResponse["scenes"]) {
     voice: "verse",
     burnSubtitles: true
   });
+}
+
+function createClientJobId() {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+
+  return `job-${Date.now()}-${suffix}`;
 }
