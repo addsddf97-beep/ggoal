@@ -23,12 +23,17 @@ OLLAMA_TEXT_MODEL=qwen3:4b
 OLLAMA_REQUEST_TIMEOUT_MS=180000
 OPENAI_TEXT_MODEL=gpt-5.4-mini
 IMAGE_PROVIDER=local
-LOCAL_IMAGE_BASE_URL=https://zghikrizu48i.shares.zrok.io
-LOCAL_IMAGE_MODEL=LlamaGen GPT-XL Text-to-Image
+LOCAL_IMAGE_API=comfyui
+LOCAL_IMAGE_BASE_URL=https://c1mjnjb23sg3.shares.zrok.io
+LOCAL_IMAGE_MODEL=
 LOCAL_IMAGE_SIZE=256x256
 LOCAL_IMAGE_SEED=42
 LOCAL_IMAGE_CFG_SCALE=7.5
 LOCAL_IMAGE_TEMPERATURE=1.0
+LOCAL_IMAGE_STEPS=20
+LOCAL_IMAGE_SAMPLER=euler
+LOCAL_IMAGE_SCHEDULER=normal
+LOCAL_IMAGE_NEGATIVE_PROMPT=text, watermark, logo, blurry, low quality, distorted hands, extra fingers
 LOCAL_IMAGE_TIMEOUT_MS=180000
 IMAGE_CONCURRENCY=1
 OPENAI_IMAGE_MODEL=gpt-image-1.5
@@ -55,7 +60,7 @@ WEB_ORIGIN=http://localhost:3000
 
 텍스트 생성은 기본적으로 zrok 공유 URL `https://ym1mvbhf9e0w.shares.zrok.io`의 `local-qwen-4b` 모델을 사용합니다. 로컬 Ollama로 되돌리고 싶으면 `TEXT_AI_PROVIDER=ollama`로 바꾸면 됩니다.
 zrok 텍스트 endpoint가 60초 안에 응답하지 않으면 gateway timeout이 날 수 있으므로 모델 서버 상태와 Qwen `/no_think` 설정을 확인하세요.
-이미지 생성은 기본적으로 zrok 공유 URL `https://zghikrizu48i.shares.zrok.io/generate_file`의 `LlamaGen GPT-XL Text-to-Image` 모델을 사용합니다. 요청 payload는 `prompt`, `seed`, `cfg_scale`, `temperature`, `size` 형식을 따르고, 서버가 해당 형식을 받지 않으면 `/v1/images/generations` JSON base64 API로 fallback합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
+이미지 생성은 기본적으로 zrok 공유 URL `https://c1mjnjb23sg3.shares.zrok.io`의 ComfyUI API를 사용합니다. API는 `/prompt`에 txt2img workflow를 등록하고, `/history/{prompt_id}`를 polling한 뒤, `/view`로 결과 이미지를 가져옵니다. `LOCAL_IMAGE_MODEL`이 비어 있으면 `/models/checkpoints`의 첫 번째 checkpoint를 자동 선택합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
 TTS는 기본적으로 zrok 공유 URL `https://ym1mvbhf9e0w.shares.zrok.io/tts`의 Windows System.Speech `Microsoft Heami Desktop` 음성을 사용합니다. OpenAI TTS로 되돌리고 싶으면 `TTS_PROVIDER=openai`로 바꾸면 됩니다.
 
 프론트엔드 환경변수는 `apps/web/.env.local`에 둡니다.
@@ -81,12 +86,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\local-llm\Start-LocalLLMApi.ps1 -HostAddress 0.0.0.0 -Port 8088
 ```
 
-이미지 API 서버는 zrok 공유 URL 또는 로컬 `http://127.0.0.1:8010`에서 실행될 수 있습니다.
+이미지 API 서버는 zrok 공유 URL 또는 로컬 ComfyUI `http://127.0.0.1:8188`에서 실행될 수 있습니다.
 
 ```text
-GET  /health
-POST /generate_file
-POST /v1/images/generations
+POST /prompt
+GET  /history/{prompt_id}
+GET  /view
 ```
 
 - 웹: `http://localhost:3000`
@@ -96,14 +101,15 @@ POST /v1/images/generations
 
 - `POST /api/topics`: zrok 텍스트 API로 음식/아이디어 기반 숏츠 주제 후보 5개 생성
 - `POST /api/script`: zrok 텍스트 API로 선택한 주제 기반 30~60초 숏츠 스크립트 생성
-- `POST /api/images`: zrok LlamaGen 이미지 API로 씬별 캐릭터 이미지 생성 후 `apps/api/public/generated/{jobId}`에 저장
+- `POST /api/images`: zrok ComfyUI 이미지 API로 씬별 캐릭터 이미지 생성 후 `apps/api/public/generated/{jobId}`에 저장
 - `POST /api/video`: 씬별 이미지, 대사, 자막을 zrok TTS 오디오와 MP4 숏츠 영상으로 합성
 
 ## 문제 해결
 
 - `429 You exceeded your current quota`: OpenAI API 계정의 크레딧, 결제수단, 또는 월 사용 한도를 확인해야 합니다. 코드 문제가 아니라 OpenAI Billing/Usage 제한입니다. 개발이나 시연 흐름만 확인하려면 `USE_MOCK_AI=true`로 전환하면 외부 API 호출 없이 mock 응답으로 테스트할 수 있습니다.
 - `zrok 텍스트 요청 실패 (504)`: `https://ym1mvbhf9e0w.shares.zrok.io/health`가 열리는지, `local-qwen-4b`가 60초 안에 응답하는지 확인하세요.
-- `로컬 이미지 서버에 연결하지 못했습니다`: `LOCAL_IMAGE_BASE_URL`의 `/health`가 열리는지 확인하세요. 이 프로젝트는 이미지 API의 `/generate_file`을 우선 사용하고, 필요하면 `/v1/images/generations`만 fallback으로 사용합니다.
+- `ComfyUI checkpoint 모델을 찾지 못했습니다`: ComfyUI의 `models/checkpoints` 폴더에 checkpoint를 추가하거나 `LOCAL_IMAGE_MODEL`을 실제 checkpoint 파일명으로 설정하세요.
+- `로컬 이미지 서버에 연결하지 못했습니다`: `LOCAL_IMAGE_BASE_URL`의 ComfyUI `/prompt`, `/history/{prompt_id}`, `/view` API가 열리는지 확인하세요.
 - `로컬 TTS 서버에 연결하지 못했습니다`: `LOCAL_TTS_BASE_URL`의 `/health`, `/tts/voices`가 열리는지 확인하세요. 이 프로젝트는 TTS 생성에는 `/tts`와 `/audio/{filename}.wav`만 사용합니다.
 
 ## MVP 범위

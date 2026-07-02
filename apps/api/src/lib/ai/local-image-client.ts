@@ -16,6 +16,10 @@ export async function createLocalImage(prompt: string) {
   const config = getServerConfig();
   const baseUrl = normalizeBaseUrl(config.localImageBaseUrl);
 
+  if (config.localImageApi === "comfyui") {
+    return createImageWithComfyUi(baseUrl, prompt, config);
+  }
+
   try {
     return await createImageWithFileApi(baseUrl, prompt, config);
   } catch (error) {
@@ -25,6 +29,301 @@ export async function createLocalImage(prompt: string) {
 
     return createImageWithJsonApi(baseUrl, prompt, config, error);
   }
+}
+
+async function createImageWithComfyUi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
+  const deadline = Date.now() + config.localImageTimeoutMs;
+  const { width, height } = parseImageSize(config.localImageSize);
+  const checkpoint = config.localImageModel || (await fetchFirstComfyCheckpoint(baseUrl, deadline));
+  const workflow = buildComfyTxt2ImgWorkflow({
+    checkpoint,
+    config,
+    height,
+    prompt,
+    width
+  });
+  const promptId = await queueComfyPrompt(baseUrl, workflow, deadline);
+  const imageReference = await pollComfyImageReference(baseUrl, promptId, deadline);
+
+  return fetchComfyImage(baseUrl, imageReference, remainingTimeout(deadline));
+}
+
+async function fetchFirstComfyCheckpoint(baseUrl: string, deadline: number) {
+  const response = await fetchWithTimeout(new URL("/models/checkpoints", baseUrl), {}, remainingTimeout(deadline));
+
+  if (!response.ok) {
+    throw new Error(`ComfyUI checkpoint 목록을 불러오지 못했습니다 (${response.status}). LOCAL_IMAGE_MODEL을 설정해 주세요.`);
+  }
+
+  const checkpoints = (await response.json()) as unknown;
+
+  if (Array.isArray(checkpoints) && typeof checkpoints[0] === "string" && checkpoints[0].trim()) {
+    return checkpoints[0];
+  }
+
+  throw new Error(
+    "ComfyUI checkpoint 모델을 찾지 못했습니다. ComfyUI의 models/checkpoints 폴더에 모델을 추가하거나 LOCAL_IMAGE_MODEL을 설정해 주세요."
+  );
+}
+
+async function queueComfyPrompt(baseUrl: string, workflow: JsonRecord, deadline: number) {
+  const response = await fetchWithTimeout(
+    new URL("/prompt", baseUrl),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        client_id: `food-shorts-${crypto.randomUUID()}`,
+        prompt: workflow
+      })
+    },
+    remainingTimeout(deadline)
+  );
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new LocalImageRequestError(response.status, `ComfyUI /prompt 요청 실패: ${text.slice(0, 1200)}`);
+  }
+
+  const payload = parseJsonPayload(text) as JsonRecord;
+  const nodeErrors = payload.node_errors;
+
+  if (nodeErrors && typeof nodeErrors === "object" && Object.keys(nodeErrors).length > 0) {
+    throw new Error(`ComfyUI workflow node 오류: ${JSON.stringify(nodeErrors).slice(0, 1200)}`);
+  }
+
+  const promptId = payload.prompt_id;
+
+  if (typeof promptId !== "string" || !promptId.trim()) {
+    throw new Error(`ComfyUI /prompt 응답에서 prompt_id를 찾지 못했습니다: ${text.slice(0, 1200)}`);
+  }
+
+  return promptId;
+}
+
+async function pollComfyImageReference(baseUrl: string, promptId: string, deadline: number) {
+  let lastPayload: unknown;
+
+  while (Date.now() < deadline) {
+    const response = await fetchWithTimeout(
+      new URL(`/history/${encodeURIComponent(promptId)}`, baseUrl),
+      {},
+      Math.min(10000, remainingTimeout(deadline))
+    );
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new LocalImageRequestError(response.status, `ComfyUI /history 요청 실패: ${text.slice(0, 1200)}`);
+    }
+
+    const payload = parseJsonPayload(text);
+    lastPayload = payload;
+    const imageReference = findComfyImageReference(payload, promptId);
+
+    if (imageReference) {
+      return imageReference;
+    }
+
+    const error = findComfyExecutionError(payload, promptId);
+
+    if (error) {
+      throw new Error(`ComfyUI 이미지 생성 실패: ${error}`);
+    }
+
+    await sleep(1500);
+  }
+
+  throw new Error(`ComfyUI 이미지 생성 시간이 초과되었습니다: ${JSON.stringify(lastPayload).slice(0, 1200)}`);
+}
+
+async function fetchComfyImage(baseUrl: string, reference: ComfyImageReference, timeoutMs: number) {
+  const url = new URL("/view", baseUrl);
+  url.searchParams.set("filename", reference.filename);
+  url.searchParams.set("type", reference.type || "output");
+
+  if (reference.subfolder) {
+    url.searchParams.set("subfolder", reference.subfolder);
+  }
+
+  const response = await fetchWithTimeout(url, {}, timeoutMs);
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  if (!response.ok) {
+    throw new LocalImageRequestError(response.status, `ComfyUI /view 요청 실패: ${buffer.toString("utf8").slice(0, 1200)}`);
+  }
+
+  if (!isLikelyImageBuffer(buffer)) {
+    throw new Error(`ComfyUI /view 응답이 이미지가 아닙니다: ${buffer.toString("utf8").slice(0, 1200)}`);
+  }
+
+  return buffer;
+}
+
+type ComfyImageReference = {
+  filename: string;
+  subfolder?: string;
+  type?: string;
+};
+
+function findComfyImageReference(payload: unknown, promptId: string): ComfyImageReference | null {
+  const root = selectPromptHistory(payload, promptId);
+  return findNestedComfyImage(root);
+}
+
+function selectPromptHistory(payload: unknown, promptId: string) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const record = payload as JsonRecord;
+  return record[promptId] ?? payload;
+}
+
+function findNestedComfyImage(value: unknown): ComfyImageReference | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = findNestedComfyImage(item);
+
+      if (nested) {
+        return nested;
+      }
+    }
+
+    return null;
+  }
+
+  const record = value as JsonRecord;
+  const images = record.images;
+
+  if (Array.isArray(images)) {
+    for (const image of images) {
+      if (!image || typeof image !== "object") {
+        continue;
+      }
+
+      const imageRecord = image as JsonRecord;
+
+      if (typeof imageRecord.filename === "string" && imageRecord.filename.trim()) {
+        return {
+          filename: imageRecord.filename,
+          subfolder: typeof imageRecord.subfolder === "string" ? imageRecord.subfolder : undefined,
+          type: typeof imageRecord.type === "string" ? imageRecord.type : undefined
+        };
+      }
+    }
+  }
+
+  for (const item of Object.values(record)) {
+    const nested = findNestedComfyImage(item);
+
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function findComfyExecutionError(payload: unknown, promptId: string) {
+  const root = selectPromptHistory(payload, promptId);
+
+  if (!root || typeof root !== "object") {
+    return null;
+  }
+
+  const status = (root as JsonRecord).status;
+
+  if (!status || typeof status !== "object") {
+    return null;
+  }
+
+  const statusRecord = status as JsonRecord;
+
+  if (statusRecord.status_str === "error" || statusRecord.completed === false) {
+    return JSON.stringify(statusRecord).slice(0, 1200);
+  }
+
+  return null;
+}
+
+function buildComfyTxt2ImgWorkflow({
+  checkpoint,
+  config,
+  height,
+  prompt,
+  width
+}: {
+  checkpoint: string;
+  config: ReturnType<typeof getServerConfig>;
+  height: number;
+  prompt: string;
+  width: number;
+}) {
+  return {
+    "3": {
+      class_type: "KSampler",
+      inputs: {
+        cfg: config.localImageCfgScale,
+        denoise: 1,
+        latent_image: ["5", 0],
+        model: ["4", 0],
+        negative: ["7", 0],
+        positive: ["6", 0],
+        sampler_name: config.localImageSampler,
+        scheduler: config.localImageScheduler,
+        seed: config.localImageSeed,
+        steps: config.localImageSteps
+      }
+    },
+    "4": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: {
+        ckpt_name: checkpoint
+      }
+    },
+    "5": {
+      class_type: "EmptyLatentImage",
+      inputs: {
+        batch_size: 1,
+        height,
+        width
+      }
+    },
+    "6": {
+      class_type: "CLIPTextEncode",
+      inputs: {
+        clip: ["4", 1],
+        text: prompt
+      }
+    },
+    "7": {
+      class_type: "CLIPTextEncode",
+      inputs: {
+        clip: ["4", 1],
+        text: config.localImageNegativePrompt
+      }
+    },
+    "8": {
+      class_type: "VAEDecode",
+      inputs: {
+        samples: ["3", 0],
+        vae: ["4", 2]
+      }
+    },
+    "9": {
+      class_type: "SaveImage",
+      inputs: {
+        filename_prefix: "food-shorts",
+        images: ["8", 0]
+      }
+    }
+  };
 }
 
 async function createImageWithFileApi(baseUrl: string, prompt: string, config: ReturnType<typeof getServerConfig>) {
@@ -189,6 +488,36 @@ function buildImageUrls(reference: string, baseUrl: string) {
   }
 
   return urls;
+}
+
+function parseImageSize(size: string) {
+  const match = size.match(/^(\d+)x(\d+)$/i);
+
+  if (!match) {
+    return { width: 512, height: 512 };
+  }
+
+  const width = clampImageDimension(Number(match[1]));
+  const height = clampImageDimension(Number(match[2]));
+
+  return { width, height };
+}
+
+function clampImageDimension(value: number) {
+  if (!Number.isFinite(value)) {
+    return 512;
+  }
+
+  const rounded = Math.round(value / 8) * 8;
+  return Math.min(2048, Math.max(64, rounded));
+}
+
+function remainingTimeout(deadline: number) {
+  return Math.max(1000, deadline - Date.now());
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function fetchWithTimeout(url: URL, init: RequestInit, timeoutMs: number) {

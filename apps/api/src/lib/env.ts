@@ -11,6 +11,7 @@ export type ServerConfig = {
   imageProvider: "local" | "openai";
   imageModel: string;
   imageQuality: string;
+  localImageApi: "comfyui" | "legacy";
   imageConcurrency: number;
   localImageBaseUrl: string;
   localImageModel: string;
@@ -18,6 +19,10 @@ export type ServerConfig = {
   localImageSeed: number;
   localImageCfgScale: number;
   localImageTemperature: number;
+  localImageSteps: number;
+  localImageSampler: string;
+  localImageScheduler: string;
+  localImageNegativePrompt: string;
   localImageTimeoutMs: number;
   ttsProvider: "local" | "openai";
   ttsModel: string;
@@ -42,6 +47,7 @@ export function getServerConfig(): ServerConfig {
   const explicitMock = process.env.USE_MOCK_AI === "true";
   const textProvider = parseTextProvider(process.env.TEXT_AI_PROVIDER);
   const imageProvider = parseImageProvider(process.env.IMAGE_PROVIDER);
+  const localImageApi = parseLocalImageApi(process.env.LOCAL_IMAGE_API);
   const ttsProvider = parseTtsProvider(process.env.TTS_PROVIDER);
 
   return {
@@ -57,18 +63,26 @@ export function getServerConfig(): ServerConfig {
     imageProvider,
     imageModel: process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1.5",
     imageQuality: process.env.OPENAI_IMAGE_QUALITY?.trim() || "low",
+    localImageApi,
     imageConcurrency: parseBoundedInteger(
       process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY,
       imageProvider === "local" ? 1 : 4,
       1,
       5
     ),
-    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://zghikrizu48i.shares.zrok.io",
-    localImageModel: process.env.LOCAL_IMAGE_MODEL?.trim() || "LlamaGen GPT-XL Text-to-Image",
+    localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://c1mjnjb23sg3.shares.zrok.io",
+    localImageModel:
+      process.env.LOCAL_IMAGE_MODEL?.trim() || (localImageApi === "legacy" ? "LlamaGen GPT-XL Text-to-Image" : ""),
     localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "256x256",
     localImageSeed: parseBoundedInteger(process.env.LOCAL_IMAGE_SEED, 42, 0, 2147483647),
     localImageCfgScale: parseBoundedNumber(process.env.LOCAL_IMAGE_CFG_SCALE, 7.5, 0, 30),
     localImageTemperature: parseBoundedNumber(process.env.LOCAL_IMAGE_TEMPERATURE, 1.0, 0, 5),
+    localImageSteps: parseBoundedInteger(process.env.LOCAL_IMAGE_STEPS, 20, 1, 80),
+    localImageSampler: process.env.LOCAL_IMAGE_SAMPLER?.trim() || "euler",
+    localImageScheduler: process.env.LOCAL_IMAGE_SCHEDULER?.trim() || "normal",
+    localImageNegativePrompt:
+      process.env.LOCAL_IMAGE_NEGATIVE_PROMPT?.trim() ||
+      "text, watermark, logo, blurry, low quality, distorted hands, extra fingers",
     localImageTimeoutMs: parseBoundedInteger(process.env.LOCAL_IMAGE_TIMEOUT_MS, 180000, 10000, 300000),
     ttsProvider,
     ttsModel: process.env.OPENAI_TTS_MODEL?.trim() || "gpt-4o-mini-tts",
@@ -136,6 +150,11 @@ function parseTextProvider(value: string | undefined): "zrok" | "ollama" | "open
 function parseImageProvider(value: string | undefined): "local" | "openai" {
   const normalized = value?.trim().toLowerCase();
   return normalized === "openai" ? "openai" : "local";
+}
+
+function parseLocalImageApi(value: string | undefined): "comfyui" | "legacy" {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "legacy" || normalized === "llamagen" ? "legacy" : "comfyui";
 }
 
 function parseTtsProvider(value: string | undefined): "local" | "openai" {
