@@ -38,6 +38,7 @@ export default function Home() {
   const [topics, setTopics] = useState<TopicCandidate[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
   const [script, setScript] = useState<ShortsScript | null>(null);
+  const [customImagePrompts, setCustomImagePrompts] = useState<Record<number, string>>({});
   const [images, setImages] = useState<ImagesResponse | null>(null);
   const [audio, setAudio] = useState<TtsResponse | null>(null);
   const [video, setVideo] = useState<VideoResponse | null>(null);
@@ -50,6 +51,24 @@ export default function Home() {
     [selectedTopicId, topics]
   );
 
+  const scenesWithCustomPrompts = useMemo(
+    () =>
+      script
+        ? script.scenes.map((scene) => ({
+            ...scene,
+            imagePrompt: customImagePrompts[scene.sceneIndex] ?? scene.imagePrompt
+          }))
+        : [],
+    [script, customImagePrompts]
+  );
+
+  function updateImagePrompt(sceneIndex: number, value: string) {
+    setCustomImagePrompts((previous) => ({
+      ...previous,
+      [sceneIndex]: value
+    }));
+  }
+
   async function handleTopics(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!idea.trim()) {
@@ -61,6 +80,7 @@ export default function Home() {
     setLoading("topics");
     setImages(null);
     setScript(null);
+    setCustomImagePrompts({});
     setAudio(null);
     setVideo(null);
     setSelectedTopicId("");
@@ -92,6 +112,9 @@ export default function Home() {
     try {
       const response = await generateScript(idea, selectedTopic);
       setScript(response.script);
+      setCustomImagePrompts(
+        Object.fromEntries(response.script.scenes.map((scene) => [scene.sceneIndex, scene.imagePrompt]))
+      );
       setStep(3);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "스크립트 생성에 실패했습니다.");
@@ -112,7 +135,7 @@ export default function Home() {
     setVideo(null);
 
     try {
-      const response = await generateImages(script.scenes);
+      const response = await generateImages(scenesWithCustomPrompts);
       setImages(response);
       setStep(4);
     } catch (requestError) {
@@ -167,6 +190,7 @@ export default function Home() {
     setTopics([]);
     setSelectedTopicId("");
     setScript(null);
+    setCustomImagePrompts({});
     setImages(null);
     setAudio(null);
     setVideo(null);
@@ -174,7 +198,7 @@ export default function Home() {
   }
 
   const scriptClipboard = script ? formatScriptForClipboard(script) : "";
-  const promptClipboard = script ? formatPromptsForClipboard(script.scenes) : "";
+  const promptClipboard = script ? formatPromptsForClipboard(scenesWithCustomPrompts) : "";
   const videoSrc = video?.videoDataUrl ?? (video ? createAbsoluteApiUrl(video.videoUrl) : "");
   const srtSrc = video?.srtText
     ? `data:text/plain;charset=utf-8,${encodeURIComponent(video.srtText)}`
@@ -374,6 +398,17 @@ export default function Home() {
                           <div>
                             <dt className="font-bold text-ink">화면 연출</dt>
                             <dd>{scene.visualDirection}</dd>
+                          </div>
+                          <div className="md:col-span-2">
+                            <dt className="font-bold text-ink">이미지 프롬프트 수정</dt>
+                            <dd>
+                              <textarea
+                                value={customImagePrompts[scene.sceneIndex] ?? scene.imagePrompt}
+                                onChange={(event) => updateImagePrompt(scene.sceneIndex, event.target.value)}
+                                className="mt-1 min-h-24 w-full resize-none rounded-md border border-ink/15 bg-white px-2.5 py-2 text-xs font-semibold leading-6 text-ink outline-none transition placeholder:text-ink/35 focus:border-ink"
+                                placeholder="프롬프트를 직접 고치면 이미지 생성에 반영됩니다."
+                              />
+                            </dd>
                           </div>
                           <div>
                             <dt className="font-bold text-ink">균형 메모</dt>
