@@ -72,7 +72,8 @@ export function getServerConfig(): ServerConfig {
     ),
     localImageBaseUrl: process.env.LOCAL_IMAGE_BASE_URL?.trim() || "https://m5a1acjjn9hw.shares.zrok.io",
     localImageModel:
-      process.env.LOCAL_IMAGE_MODEL?.trim() || (localImageApi === "legacy" ? "LlamaGen GPT-XL Text-to-Image" : ""),
+      process.env.LOCAL_IMAGE_MODEL?.trim() ||
+      (localImageApi === "legacy" ? "LlamaGen GPT-XL Text-to-Image" : "sd_xl_base_1.0.safetensors"),
     localImageSize: process.env.LOCAL_IMAGE_SIZE?.trim() || "256x256",
     localImageSeed: parseBoundedInteger(process.env.LOCAL_IMAGE_SEED, 42, 0, 2147483647),
     localImageCfgScale: parseBoundedNumber(process.env.LOCAL_IMAGE_CFG_SCALE, 7.5, 0, 30),
