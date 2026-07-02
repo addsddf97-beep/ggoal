@@ -1,216 +1,54 @@
-# 골때리는 건강 가이드 스튜디오
+# 개인 학습 기록 및 기여도 명세서
 
-음식 이름이나 짧은 아이디어를 입력하면 AI가 숏츠 주제, 대본, 이미지, TTS 음성, 자막, MP4 영상을 한 번에 생성하는 풀스택 AI 콘텐츠 제작 도구입니다.
+## Header
+* 이름: 이은
+* 팀명: 1팀
+* 내가 맡은 역할: Project Manager (PM)
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=nextdotjs)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel)](https://vercel.com/)
-[![ComfyUI](https://img.shields.io/badge/Image-ComfyUI-purple)](https://github.com/comfyanonymous/ComfyUI)
-[![FFmpeg](https://img.shields.io/badge/Video-FFmpeg-green)](https://ffmpeg.org/)
+## Tech Stack Badge
+* Next.js, FastAPI, qwen3-4B, FLUX.2 Klein 4B, qwen3 12hz 0.6b, zrok
 
-## Overview
+---
 
-이 프로젝트는 음식 캐릭터 밈과 건강 정보를 결합해 짧은 영상 콘텐츠를 빠르게 제작하기 위한 MVP입니다.
+## Feature Log: 내가 기획하고 리드한 핵심 기능
 
-- 음식/아이디어 기반 숏츠 주제 후보 5개 생성
-- 선택한 주제 기반 4씬 대본 생성
-- ComfyUI SDXL 기반 씬별 이미지 생성
-- Orpheus 한국어 TTS 기반 음성 생성
-- 자막 파일 생성 및 FFmpeg MP4 합성
-- 프론트엔드와 백엔드를 분리한 Next.js 모노레포 구조
-- zrok으로 공개된 로컬 AI 모델 서버와 Vercel 배포 API 연동
+### 1. 통합 자동화 파이프라인 아키텍처 및 유저 플로우 설계
+* 사용자가 단일 주제를 입력했을 때 아이디어 생성, 후보 선택, 상황극 스크립트 도출, 씬별 이미지 생성 및 최종 영상 합성까지 유기적으로 이어지는 4단계 서비스 자동화 파이프라인의 핵심 프로세스를 기획하고 유저 플로우를 정립했습니다.
 
-## Demo
+### 2. 크로스 기능 조직(Cross-Functional)의 기술 규격 조율
+* 텍스트, 이미지, 음성을 담당하는 세 개의 독립적인 로컬 AI 모델 서비스가 Next.js 기반 백엔드 API Route를 통해 동시에 분기 및 호출될 수 있도록 전체적인 인터페이스 연동 구조와 개발 범위를 조율했습니다.
 
-- Web: [https://golddaegeon-health-guide-studio-web.vercel.app](https://golddaegeon-health-guide-studio-web.vercel.app)
-- API Health: [https://golddaegeon-health-guide-studio-api.vercel.app/api/health](https://golddaegeon-health-guide-studio-api.vercel.app/api/health)
-- Repository: [https://github.com/iris112-sung/golddaegeon-health-guide-studio](https://github.com/iris112-sung/golddaegeon-health-guide-studio)
+---
 
-## Tech Stack
+## Debug Log: 기획 및 인프라적 제약 해결 (Troubleshooting)
 
-| Layer | Stack |
-| --- | --- |
-| Frontend | Next.js App Router, React 19, TypeScript, Tailwind CSS, lucide-react |
-| Backend | Next.js Route Handlers, TypeScript, Zod |
-| Text AI | zrok 공개 Qwen3 4B 계열 로컬 LLM API |
-| Image AI | zrok 공개 ComfyUI API, SDXL checkpoint |
-| TTS AI | zrok 공개 Orpheus 3B Korean TTS API |
-| Video | FFmpeg, ASS/SRT captions |
-| Deploy | Vercel Web, Vercel API, GitHub |
+### 1. 초기 검토 모델의 Mac 환경 구축 제약 및 저품질 문제
+* SUCCESS: 로컬 환경 내 AI 이미지 모델 도입을 위한 리서치 및 검토 단계를 완료했습니다.
+* FAIL: 최초 기획에 도입하고자 했던 LlamaGen 모델이 Mac 환경에서 세팅이 지나치게 복잡하여 개발진의 모델 관리가 불가능했고, 최종 출력 비주얼의 품질 또한 낮아 개발 일정에 병목이 발생했습니다.
+* TRACE: 이미지 파트 개발자의 Apple Silicon 환경 내 초기 의존성 세팅 및 추론 테스트 단계에서 병목 현상이 발견되었습니다.
+* DIAGNOSIS: 해당 오픈소스 모델이 Mac 아키텍처 최적화 및 텍스트 프롬프트 이해 능력이 부족하여 프로젝트 요구사항을 충족하지 못하는 상태였습니다.
+* ATTEMPT: 공식 문서를 기반으로 개발 파트와 함께 환경 세팅 가이드를 재검토했으나 품질 개선에 한계가 있었습니다.
+* SOLUTION: PM으로서 과감한 피벗을 제안하여, Apple Silicon 로컬 추론과 4bit 양자화가 가능한 FLUX.2 Klein 4B 및 mflux 구조로 변경하도록 개발 방향을 선회하여 메모리 문제를 해결하고 이미지 품질을 확보했습니다.
 
-## Architecture
+### 2. Localhost 외부 접근 제한으로 인한 백엔드 연동 마비
+* SUCCESS: mflux와 FastAPI 조합을 활용한 로컬 환경 독립 이미지 API 서버 구축안을 확정했습니다.
+* FAIL: 백엔드(Next.js API Route) 환경에서 로컬 머신에 분리된 이미지 생성 API 서버를 원격으로 인식하거나 호출하지 못하는 연결 실패가 발생했습니다.
+* TRACE: 백엔드에서 이미지 생성 엔드포인트(POST /generate_file) 호출 시 타임아웃 및 네트워크 연결 거부 현상이 나타났습니다.
+* DIAGNOSIS: 로컬 사설 네트워크 내부망에 존재하는 API 서버의 특성상 외부 접근을 위한 포트포워딩 또는 안정적인 네트워크 터널링 인프라가 부재한 것이 원인이었습니다.
+* ATTEMPT: 방화벽 정책 변경 및 내부 IP 직접 공유 방식을 제안했으나 보안 및 안정성 측면에서 구동이 불가능했습니다.
+* SOLUTION: 인프라 제약을 타개하기 위해 zrok 터널링 서비스 도입을 제안하여 Public URL을 생성해 냄으로써, 백엔드에서 안전하고 원격으로 로컬 API를 호출할 수 있는 통합 환경을 구축했습니다.
 
-```mermaid
-flowchart LR
-  User["User<br/>음식 이름 또는 아이디어"] --> Web["Next.js Web<br/>apps/web"]
-  Web --> API["Next.js API<br/>apps/api"]
+### 3. 웹 애플리케이션 내 오디오 출력 먹통 오류
+* SUCCESS: 한국어 음성 생성을 위한 온프레미스 TTS 파이프라인 구조 설계를 조율했습니다.
+* FAIL: 기존 기계음 기반 TTS의 출력이 부자연스러웠고, 연동 후 웹 인터페이스 상에서 실제 재생 버튼을 눌렀을 때 오디오 소스가 출력되지 않는 데드락이 발생했습니다.
+* TRACE: 프론트엔드 오디오 플레이어 UI에서 데이터 수신 및 오디오 파일 경로 전달 단계의 예외 처리가 정상적으로 이루어지지 않았습니다.
+* DIAGNOSIS: 기존 기계음 TTS 모델 자체의 한계와 프론트엔드-백엔드 간의 오디오 경로 데이터 포맷 미비가 겹친 현상이었습니다.
+* ATTEMPT: 프론트엔드 파트와 오디오 컴포넌트 데이터 규격 조정을 논의했으나 원본 모델의 품질 제약으로 인해 근본적인 해결이 어려웠습니다.
+* SOLUTION: 타 팀의 오류 해결 모범 사례를 직접 벤치마킹하고 인사이트를 확보하여, 자연스러운 한국어 발음과 감정 표현이 가능한 qwen3 12hz 0.6b 모델로 파이프라인을 전면 교체하도록 리드하여 연동 오류를 해결했습니다.
 
-  API --> Text["zrok Text API<br/>Qwen3 local-qwen-4b"]
-  API --> Image["zrok ComfyUI API<br/>SDXL txt2img"]
-  API --> TTS["zrok TTS API<br/>Orpheus 3B Korean"]
-  API --> Video["FFmpeg<br/>image + audio + captions"]
+---
 
-  Text --> Script["Topic & Script JSON"]
-  Image --> SceneImages["Scene Images"]
-  TTS --> Voice["Voiceover WAV"]
-  Script --> Video
-  SceneImages --> Video
-  Voice --> Video
+## Retrospective: 새롭게 배운 점 / 개선하고 싶은 점
 
-  Video --> Output["Generated MP4<br/>SRT / ASS / Audio"]
-  Output --> Web
-```
-
-## Workflow
-
-1. 사용자가 음식 이름 또는 아이디어를 입력합니다.
-2. API가 zrok 텍스트 모델에 주제 후보 생성을 요청합니다.
-3. 선택된 주제로 숏츠 대본과 씬 구성을 생성합니다.
-4. 각 씬의 `imagePrompt`를 ComfyUI `/prompt`에 등록합니다.
-5. `/history/{prompt_id}`를 polling하고 `/view`로 이미지를 가져옵니다.
-6. 씬 대사를 Orpheus TTS `/tts`에 전달하고 `/audio/{filename}.wav`를 가져옵니다.
-7. FFmpeg가 이미지, 오디오, 자막을 합성해 MP4를 생성합니다.
-
-## Project Structure
-
-```text
-.
-├── apps
-│   ├── api
-│   │   └── src
-│   │       ├── app/api
-│   │       └── lib/ai
-│   └── web
-│       └── src
-│           ├── app
-│           └── lib
-├── packages
-│   └── shared
-└── README.md
-```
-
-## Environment
-
-백엔드 환경변수는 `apps/api/.env.local`에 둡니다.
-
-```env
-OPENAI_API_KEY=
-
-TEXT_AI_PROVIDER=zrok
-ZROK_AI_BASE_URL=https://ym1mvbhf9e0w.shares.zrok.io
-ZROK_TEXT_MODEL=local-qwen-4b
-ZROK_REQUEST_TIMEOUT_MS=30000
-
-IMAGE_PROVIDER=local
-LOCAL_IMAGE_API=legacy
-LOCAL_IMAGE_BASE_URL=https://8cauqh4loyzr.shares.zrok.io
-LOCAL_IMAGE_MODEL=FLUX.2 Klein 4B mflux 4bit
-LOCAL_IMAGE_SIZE=512x512
-LOCAL_IMAGE_SEED=42
-LOCAL_IMAGE_CFG_SCALE=7.5
-LOCAL_IMAGE_STEPS=4
-LOCAL_IMAGE_SAMPLER=euler
-LOCAL_IMAGE_SCHEDULER=normal
-LOCAL_IMAGE_TIMEOUT_MS=180000
-IMAGE_CONCURRENCY=1
-
-TTS_PROVIDER=local
-LOCAL_TTS_BASE_URL=https://cjpj8cqqlnq0.shares.zrok.io
-LOCAL_TTS_VOICE=유나
-LOCAL_TTS_LANGUAGE=ko-KR
-LOCAL_TTS_RATE=1
-LOCAL_TTS_VOLUME=100
-LOCAL_TTS_TIMEOUT_MS=12000
-TTS_CONCURRENCY=4
-
-VIDEO_SEGMENT_CONCURRENCY=2
-VIDEO_WIDTH=720
-VIDEO_HEIGHT=1280
-VIDEO_FPS=24
-USE_MOCK_AI=false
-WEB_ORIGIN=http://localhost:3000
-```
-
-프론트엔드 환경변수는 `apps/web/.env.local`에 둡니다.
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
-```
-
-## How to Run
-
-```bash
-npm install
-npm run dev
-```
-
-- Web: `http://localhost:3000`
-- API: `http://localhost:3001`
-
-배포 환경에서는 Web과 API가 각각 Vercel 프로젝트로 분리되어 있으며, Web은 `NEXT_PUBLIC_API_BASE_URL`로 배포 API를 바라봅니다.
-
-## API
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/health` | API 상태 확인 |
-| `POST` | `/api/topics` | 음식/아이디어 기반 주제 후보 생성 |
-| `POST` | `/api/script` | 선택 주제 기반 숏츠 대본 생성 |
-| `POST` | `/api/images` | FLUX.2 mflux 기반 씬 이미지 생성 |
-| `POST` | `/api/audio` | 씬별 TTS 생성 |
-| `POST` | `/api/compose` | TTS·자막·영상 합성 |
-| `POST` | `/api/video` | 기존 하위호환 경로: 이미지→영상 전체 처리 |
-| `GET` | `/api/generated/{jobId}/{filename}` | 생성 파일 조회 |
-
-## Model Endpoints
-
-| Model Role | Base URL | Main Endpoints |
-| --- | --- | --- |
-| Text | `https://ym1mvbhf9e0w.shares.zrok.io` | `/health`, `/v1/chat/completions` |
-| Image | `https://8cauqh4loyzr.shares.zrok.io` | `/generate_file` |
-| TTS | `https://cjpj8cqqlnq0.shares.zrok.io` | `/health`, `/tts/voices`, `/tts`, `/audio/{filename}.wav` |
-
-## Demo Scenario
-
-```text
-입력: 김치찌개
-
-1. 주제 후보 생성
-2. "김치찌개 건강하게 먹는 법" 선택
-3. 4씬 대본 생성
-4. 씬별 음식 캐릭터 이미지 생성
-5. 한국어 TTS 음성 생성
-6. 자막이 포함된 MP4 숏츠 생성
-```
-
-### Demo Screens
-
-![Workflow overview](docs/images/workflow-overview.png)
-
-![Script generation](docs/images/script-generation.png)
-
-## Troubleshooting
-
-- 이미지 생성이 실패하면 ComfyUI `/models/checkpoints`에 checkpoint가 있는지 확인합니다.
-- TTS 생성이 느리거나 실패하면 `/tts/voices`의 기본 음성명과 `/tts` 응답 시간을 확인합니다.
-- zrok URL이 바뀌면 Vercel API 프로젝트의 `LOCAL_IMAGE_BASE_URL`, `LOCAL_TTS_BASE_URL`, `ZROK_AI_BASE_URL`을 같이 갱신해야 합니다.
-- Vercel 함수 타임아웃에 걸리면 ComfyUI steps를 줄이고, 이미지 concurrency와 영상 해상도/FPS를 조정합니다.
-- OpenAI quota 에러가 나면 현재 설정이 `openai` provider로 바뀌었는지 확인합니다.
-
-## Retrospective
-
-### 잘 된 점
-
-- 프론트엔드와 백엔드를 분리해 모델 서버 교체가 쉬운 구조를 만들었습니다.
-- zrok 기반 로컬 AI 서버를 Vercel API와 연결해 외부 API 의존도를 낮췄습니다.
-- 이미지, TTS, 영상 합성 병목을 각각 분리해 디버깅할 수 있게 했습니다.
-
-### 개선할 점
-
-- 생성 파일은 현재 Vercel 런타임 임시 저장소를 사용하므로 장기 보관용 스토리지가 필요합니다.
-- TTS 품질 개선을 위해 대본용 `dialogue`와 발화용 `ttsText`를 분리하는 것이 좋습니다.
-- ComfyUI workflow를 환경변수 또는 JSON 파일로 주입하면 모델별 튜닝이 더 쉬워집니다.
-
-## License
-
-Private MVP project.
+* **새롭게 배운 점**: 외부 클라우드 API에 의존하는 것을 넘어, 로컬 모델 서빙, 온프레미스 API 구조, zrok 터널링, 프론트엔드와 백엔드의 풀스택 연결로 이어지는 전체 인프라와 아키텍처의 흐름을 완벽히 이해하게 되었습니다. 개발 프로세스에서 발생하는 기술적 병목의 원인을 파악하고 최적의 대안 모델과 솔루션을 제시하는 기술 중심 PM 역량을 강화했습니다.
+* **개선하고 싶은 점**: 다음 고도화 단계에서는 영상 편집 레이어와 자막 자동 생성 기능을 파이프라인에 추가 탑재하고, 확장성 있는 GPU 서버 환경 구축 기획을 진행하여 생성 속도를 단축시키는 제품 로드맵을 설계해보고 싶습니다.
