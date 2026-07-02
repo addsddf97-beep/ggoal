@@ -39,6 +39,10 @@ async function createSceneImage(scene: SceneScript) {
   const runtimeConfig = getServerConfig();
   const prompt = [
     scene.imagePrompt,
+    `The main subject must be an anthropomorphic ${scene.character || "food"} character, clearly visible and facing the camera.`,
+    "Make the food look like it is personally introducing itself and explaining its own nutrition information with expressive gestures.",
+    "Show simple visual nutrition cues such as ingredient icons, energy sparkles, balance scale, or portion plate, but do not include readable words or numbers.",
+    "No human presenter; the food character is the speaker and center of the scene.",
     "Use a vertical 9:16 shorts composition.",
     "Do not render readable text, captions, logos, watermarks, or UI.",
     "Keep the bottom 20 percent visually clean for Korean subtitles added later."

@@ -57,7 +57,7 @@ const scriptOutputShape = `{
       "voiceTone": "목소리 톤",
       "nutritionPoint": "영양 포인트",
       "healthBalanceNote": "균형 잡힌 건강 메모",
-      "imagePrompt": "English image prompt without text in image"
+      "imagePrompt": "English prompt: the anthropomorphic food character faces camera and explains its own nutrition, no text"
     }
   ]
 }`;
@@ -192,7 +192,9 @@ async function generateShortsScriptWithOllama(idea: string, topic: TopicCandidat
     userPrompt: buildOllamaJsonPrompt(buildOllamaScriptPrompt(idea, topic), scriptOutputShape, [
       "scenes 배열은 4개로 만든다.",
       "각 대사와 자막은 짧고 말맛 있게 쓴다.",
-      "imagePrompt는 영어 한 문장으로 쓴다."
+      "imagePrompt는 영어 한 문장으로 쓴다.",
+      "imagePrompt에는 음식 캐릭터가 카메라를 보며 자기 영양정보를 직접 설명하는 장면, 표정, 손짓, 주변 영양 아이콘을 포함한다.",
+      "imagePrompt에는 사람 진행자, 읽을 수 있는 글자, 숫자, 말풍선을 넣지 않는다."
     ]),
     numPredict: 2200,
     parse: (value) => scriptSchema.parse(value)
@@ -340,7 +342,9 @@ function buildOllamaScriptPrompt(idea: string, topic: TopicCandidate) {
     "",
     "30초 내외 유튜브 숏츠 스크립트를 만든다.",
     "흐름은 강한 훅, 음식 자기소개, 핵심 영양정보, 과장된 상황극, 균형 잡힌 마무리다.",
-    "이미지 프롬프트는 영어로 쓰고 이미지 안 텍스트는 금지한다."
+    "이미지 프롬프트는 영어로 쓰고 이미지 안 텍스트는 금지한다.",
+    "각 imagePrompt는 음식 자체가 의인화 캐릭터로 화면 중앙에 나와 카메라를 보며 자기 정보를 직접 설명하는 느낌이어야 한다.",
+    "사람 진행자 없이 음식 캐릭터의 표정, 입 모양, 손짓, 주변 재료/영양 아이콘으로 설명 장면을 구성한다."
   ].join("\n");
 }
 
@@ -368,7 +372,9 @@ function buildZrokScriptPrompt(idea: string, topic: TopicCandidate) {
     scriptOutputShape,
     "scenes는 정확히 4개.",
     "dialogue와 subtitle은 짧게.",
-    "imagePrompt는 영어, 이미지 안 텍스트 금지."
+    "imagePrompt는 영어, 이미지 안 텍스트 금지.",
+    "imagePrompt는 음식 캐릭터가 카메라를 보며 자기 영양정보를 직접 설명하는 장면으로 쓴다.",
+    "사람 진행자, 읽을 수 있는 글자, 숫자, 말풍선은 금지."
   ].join("\n");
 }
 

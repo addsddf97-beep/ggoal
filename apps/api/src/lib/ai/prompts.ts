@@ -42,6 +42,8 @@ ${selectedTopicJson}
 6. 마무리 한 줄: "먹지 말라는 게 아니라, 알고 먹자는 거다!" 같은 메시지로 끝낸다.
 
 각 씬의 imagePrompt는 영어로 작성한다. 이미지 자체에는 텍스트를 넣지 말고, 한국어 자막이 들어갈 하단 여백을 고려해라.
+각 imagePrompt는 반드시 음식 자체가 의인화 캐릭터로 화면 중앙에 등장해 카메라를 보며 자기 영양정보를 직접 설명하는 느낌이어야 한다.
+사람 진행자는 넣지 말고, 음식 캐릭터의 표정, 입 모양, 손짓, 주변의 재료/영양 아이콘으로 설명 장면을 만든다. 단, 글자와 숫자는 금지한다.
 이미지 스타일은 anthropomorphic funny food character, expressive face, vivid colors, Korean short-form meme content, vertical shorts composition, clean space for subtitle로 통일한다.
 `.trim();
 }

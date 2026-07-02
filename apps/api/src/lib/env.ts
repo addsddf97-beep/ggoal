@@ -90,7 +90,7 @@ export function getServerConfig(): ServerConfig {
     ttsVoice: process.env.OPENAI_TTS_VOICE?.trim() || "verse",
     ttsConcurrency: parseBoundedInteger(
       process.env.TTS_CONCURRENCY ?? process.env.OPENAI_TTS_CONCURRENCY,
-      ttsProvider === "local" ? 1 : 3,
+      ttsProvider === "local" ? 4 : 3,
       1,
       5
     ),
@@ -99,7 +99,7 @@ export function getServerConfig(): ServerConfig {
     localTtsLanguage: process.env.LOCAL_TTS_LANGUAGE?.trim() || "ko-KR",
     localTtsRate: parseBoundedInteger(process.env.LOCAL_TTS_RATE, 1, -10, 10),
     localTtsVolume: parseBoundedInteger(process.env.LOCAL_TTS_VOLUME, 100, 0, 100),
-    localTtsTimeoutMs: parseBoundedInteger(process.env.LOCAL_TTS_TIMEOUT_MS, 50000, 5000, 300000),
+    localTtsTimeoutMs: parseBoundedInteger(process.env.LOCAL_TTS_TIMEOUT_MS, 12000, 5000, 300000),
     videoSegmentConcurrency: parseBoundedInteger(process.env.VIDEO_SEGMENT_CONCURRENCY, 2, 1, 3),
     videoWidth: parseBoundedInteger(process.env.VIDEO_WIDTH, 720, 360, 1080),
     videoHeight: parseBoundedInteger(process.env.VIDEO_HEIGHT, 1280, 640, 1920),

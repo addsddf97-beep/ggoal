@@ -72,7 +72,7 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
     });
     const audio = (config.mockAi
       ? createSilentAudio(scene.audioFilePath, scene.durationSeconds)
-      : createSceneSpeech(scene, scene.audioFilePath, options.voice)
+      : createSceneSpeech(scene, scene.audioFilePath, scene.durationSeconds, options.voice)
     ).then(() => {
       logProgress(`scene ${scene.sceneIndex} audio ready`);
     });
@@ -189,12 +189,26 @@ export async function generateShortsVideo(scenes: SceneImage[], options: Generat
   };
 }
 
-async function createSceneSpeech(scene: SceneImage, audioFilePath: string, requestedVoice?: string) {
+async function createSceneSpeech(scene: SceneImage, audioFilePath: string, durationSeconds: number, requestedVoice?: string) {
   const runtimeConfig = getServerConfig();
 
   if (runtimeConfig.ttsProvider === "local") {
     const sourceAudioPath = `${audioFilePath}.source`;
-    await writeFile(sourceAudioPath, await createLocalTtsAudio({ text: scene.dialogue }));
+    let sourceAudio: Buffer;
+
+    try {
+      sourceAudio = await createLocalTtsAudio({ text: scene.dialogue });
+    } catch (error) {
+      console.warn(
+        `[video] local TTS failed for scene ${scene.sceneIndex}; falling back to silent audio: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      await createSilentAudio(audioFilePath, durationSeconds);
+      return;
+    }
+
+    await writeFile(sourceAudioPath, sourceAudio);
     await runFfmpeg([
       "-y",
       "-i",
