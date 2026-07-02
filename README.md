@@ -108,11 +108,11 @@ LOCAL_IMAGE_MODEL=
 LOCAL_IMAGE_SIZE=256x256
 LOCAL_IMAGE_SEED=42
 LOCAL_IMAGE_CFG_SCALE=7.5
-LOCAL_IMAGE_STEPS=20
+LOCAL_IMAGE_STEPS=10
 LOCAL_IMAGE_SAMPLER=euler
 LOCAL_IMAGE_SCHEDULER=normal
 LOCAL_IMAGE_TIMEOUT_MS=180000
-IMAGE_CONCURRENCY=1
+IMAGE_CONCURRENCY=4
 
 TTS_PROVIDER=local
 LOCAL_TTS_BASE_URL=https://w3mzn1l1ted0.shares.zrok.io
@@ -186,7 +186,7 @@ npm run dev
 - 이미지 생성이 실패하면 ComfyUI `/models/checkpoints`에 checkpoint가 있는지 확인합니다.
 - TTS 생성이 느리거나 실패하면 `/tts/voices`의 기본 음성명과 `/tts` 응답 시간을 확인합니다.
 - zrok URL이 바뀌면 Vercel API 프로젝트의 `LOCAL_IMAGE_BASE_URL`, `LOCAL_TTS_BASE_URL`, `ZROK_AI_BASE_URL`을 같이 갱신해야 합니다.
-- Vercel 함수 타임아웃에 걸리면 이미지/TTS concurrency를 낮추고, 영상 해상도와 FPS를 줄입니다.
+- Vercel 함수 타임아웃에 걸리면 ComfyUI steps를 줄이고, 이미지 concurrency와 영상 해상도/FPS를 조정합니다.
 - OpenAI quota 에러가 나면 현재 설정이 `openai` provider로 바뀌었는지 확인합니다.
 
 ## Retrospective

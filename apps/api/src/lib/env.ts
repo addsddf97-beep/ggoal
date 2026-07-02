@@ -66,7 +66,7 @@ export function getServerConfig(): ServerConfig {
     localImageApi,
     imageConcurrency: parseBoundedInteger(
       process.env.IMAGE_CONCURRENCY ?? process.env.OPENAI_IMAGE_CONCURRENCY,
-      imageProvider === "local" ? 1 : 4,
+      imageProvider === "local" && localImageApi === "legacy" ? 1 : 4,
       1,
       5
     ),
@@ -77,7 +77,7 @@ export function getServerConfig(): ServerConfig {
     localImageSeed: parseBoundedInteger(process.env.LOCAL_IMAGE_SEED, 42, 0, 2147483647),
     localImageCfgScale: parseBoundedNumber(process.env.LOCAL_IMAGE_CFG_SCALE, 7.5, 0, 30),
     localImageTemperature: parseBoundedNumber(process.env.LOCAL_IMAGE_TEMPERATURE, 1.0, 0, 5),
-    localImageSteps: parseBoundedInteger(process.env.LOCAL_IMAGE_STEPS, 20, 1, 80),
+    localImageSteps: parseBoundedInteger(process.env.LOCAL_IMAGE_STEPS, 10, 1, 80),
     localImageSampler: process.env.LOCAL_IMAGE_SAMPLER?.trim() || "euler",
     localImageScheduler: process.env.LOCAL_IMAGE_SCHEDULER?.trim() || "normal",
     localImageNegativePrompt:
