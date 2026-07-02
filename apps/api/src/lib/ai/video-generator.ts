@@ -91,7 +91,7 @@ export async function generateShortsAudio(scenes: SceneImage[], options: Omit<Ge
         ...scene,
         audioUrl: storedAudio.artifactUrl,
         audioPath: storedAudio.artifactPath,
-        audioDataUrl: toDataUrl("audio/mpeg", audio)
+        audioDataUrl: toDataUrl(detectAudioMimeType(audio), audio)
       };
     })
   );
@@ -231,7 +231,7 @@ export async function composeShortsVideo(scenes: SceneAudio[], options: Generate
     assText: ass,
     audioUrl: storedAudio.artifactUrl,
     audioPath: storedAudio.artifactPath,
-    audioDataUrl: toDataUrl("audio/mpeg", audio),
+    audioDataUrl: toDataUrl(detectAudioMimeType(audio), audio),
     scenes: preparedScenes.map((scene) => {
       const sceneAudio = storedSceneAudio.find((item) => item.sceneIndex === scene.sceneIndex);
 
@@ -242,7 +242,7 @@ export async function composeShortsVideo(scenes: SceneAudio[], options: Generate
         segmentFilePath: undefined,
         audioUrl: sceneAudio?.stored.artifactUrl ?? scene.audioUrl,
         audioPath: sceneAudio?.stored.artifactPath ?? `/api/generated/${jobId}/scene-${scene.sceneIndex}.mp3`,
-        audioDataUrl: sceneAudio ? toDataUrl("audio/mpeg", sceneAudio.audio) : scene.audioDataUrl
+        audioDataUrl: sceneAudio ? toDataUrl(detectAudioMimeType(sceneAudio.audio), sceneAudio.audio) : scene.audioDataUrl
       };
     })
   };
@@ -733,4 +733,20 @@ function decodeDataUrl(dataUrl: string) {
 
 function toDataUrl(mimeType: string, file: Buffer) {
   return `data:${mimeType};base64,${file.toString("base64")}`;
+}
+
+function detectAudioMimeType(file: Buffer) {
+  if (file.subarray(0, 4).toString("ascii") === "RIFF") {
+    return "audio/wav";
+  }
+
+  if (file.subarray(0, 3).toString("ascii") === "ID3") {
+    return "audio/mpeg";
+  }
+
+  if (file.subarray(0, 4).toString("ascii") === "OggS") {
+    return "audio/ogg";
+  }
+
+  return "audio/mpeg";
 }

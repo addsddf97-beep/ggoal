@@ -21,7 +21,22 @@ export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
   const config = getServerConfig();
   const baseUrl = normalizeBaseUrl(config.localTtsBaseUrl);
   const normalizedSpeed = typeof speed === "number" && Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : undefined;
+  const ttsEndpoints = ["/tts", "/generate_file"];
   const requestBodies = [
+    {
+      message: text,
+      voice: config.localTtsVoice,
+      language: config.localTtsLanguage,
+      lang: config.localTtsLanguage,
+      rate: config.localTtsRate,
+      speed: normalizedSpeed,
+      volume: config.localTtsVolume,
+      format: "wav"
+    },
+    {
+      message: text,
+      speed: normalizedSpeed
+    },
     {
       text,
       voice: config.localTtsVoice,
@@ -48,25 +63,31 @@ export async function createLocalTtsAudio({ text, speed }: LocalTtsOptions) {
     { text }
   ];
   let lastError: unknown;
+  let attemptedEndpoint = "";
 
-  for (const body of requestBodies) {
-    try {
-      return await postLocalTts(baseUrl, body, config.localTtsTimeoutMs);
-    } catch (error) {
-      lastError = error;
+  for (const endpoint of ttsEndpoints) {
+    for (const body of requestBodies) {
+      try {
+        attemptedEndpoint = endpoint;
+        return await postLocalTts(baseUrl, endpoint, body, config.localTtsTimeoutMs);
+      } catch (error) {
+        lastError = error;
 
-      if (!(error instanceof LocalTtsRequestError) || ![400, 404, 415, 422].includes(error.status)) {
-        throw error;
+        if (!(error instanceof LocalTtsRequestError) || ![400, 404, 405, 415, 422].includes(error.status)) {
+          throw error;
+        }
       }
     }
   }
 
-  throw new Error(`로컬 TTS 요청 형식이 맞지 않습니다: ${describeError(lastError)}`);
+  throw new Error(
+    `로컬 TTS 요청 형식이 맞지 않습니다 (${attemptedEndpoint}): ${describeError(lastError)}`
+  );
 }
 
-async function postLocalTts(baseUrl: string, body: JsonRecord, timeoutMs: number) {
+async function postLocalTts(baseUrl: string, endpoint: string, body: JsonRecord, timeoutMs: number) {
   const response = await fetchWithTimeout(
-    new URL("/tts", baseUrl),
+    new URL(endpoint, baseUrl),
     {
       method: "POST",
       headers: {
@@ -88,6 +109,16 @@ async function postLocalTts(baseUrl: string, body: JsonRecord, timeoutMs: number
   }
 
   const text = buffer.toString("utf8");
+  const trimmed = text.trim();
+
+  if (looksLikeAudioReference(trimmed)) {
+    return fetchAudioReference(trimmed, baseUrl, timeoutMs);
+  }
+
+  if (looksLikeBase64Audio(trimmed)) {
+    return decodeBase64Audio(trimmed);
+  }
+
   const payload = parseJsonPayload(text);
   const audio = await resolveAudioFromPayload(payload, baseUrl, timeoutMs);
 
@@ -260,6 +291,20 @@ function looksLikeAudioReference(value: string) {
     trimmed.includes("\\") ||
     /\.(wav|mp3|m4a|ogg)(?:$|\?)/i.test(trimmed)
   );
+}
+
+function looksLikeBase64Audio(value: string) {
+  const compact = value.replace(/\s/g, "");
+  if (compact.length < 600 || /[^A-Za-z0-9+/=]/.test(compact)) {
+    return false;
+  }
+
+  return isLikelyAudioBuffer(Buffer.from(compact, "base64"));
+}
+
+function decodeBase64Audio(value: string) {
+  const compact = value.replace(/\s/g, "");
+  return Buffer.from(compact, "base64");
 }
 
 function decodeDataUrl(dataUrl: string) {
