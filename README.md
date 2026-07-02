@@ -1,27 +1,106 @@
 # 골때리는 건강 가이드 스튜디오
 
-음식 이름이나 간단한 아이디어를 입력하면 zrok으로 공개된 텍스트, 이미지, TTS API로 유튜브 숏츠용 음식 캐릭터 상황극을 생성하는 MVP입니다.
+음식 이름이나 짧은 아이디어를 입력하면 AI가 숏츠 주제, 대본, 이미지, TTS 음성, 자막, MP4 영상을 한 번에 생성하는 풀스택 AI 콘텐츠 제작 도구입니다.
 
-## 구조
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=nextdotjs)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel)](https://vercel.com/)
+[![ComfyUI](https://img.shields.io/badge/Image-ComfyUI-purple)](https://github.com/comfyanonymous/ComfyUI)
+[![FFmpeg](https://img.shields.io/badge/Video-FFmpeg-green)](https://ffmpeg.org/)
 
-- `apps/api`: Next.js Route Handlers 기반 백엔드 API, zrok 텍스트 생성, zrok 이미지 생성, zrok TTS, 로컬 파일 저장
-- `apps/web`: Next.js App Router 프론트엔드 워크플로우 UI
-- `packages/shared`: API 요청/응답 타입과 Zod 스키마
+## Overview
 
-## 환경변수
+이 프로젝트는 음식 캐릭터 밈과 건강 정보를 결합해 짧은 영상 콘텐츠를 빠르게 제작하기 위한 MVP입니다.
 
-백엔드 환경변수는 `apps/api/.env.local`에 둡니다. 이 파일은 Git에 커밋되지 않습니다.
+- 음식/아이디어 기반 숏츠 주제 후보 5개 생성
+- 선택한 주제 기반 4씬 대본 생성
+- ComfyUI SDXL 기반 씬별 이미지 생성
+- Orpheus 한국어 TTS 기반 음성 생성
+- 자막 파일 생성 및 FFmpeg MP4 합성
+- 프론트엔드와 백엔드를 분리한 Next.js 모노레포 구조
+- zrok으로 공개된 로컬 AI 모델 서버와 Vercel 배포 API 연동
+
+## Demo
+
+- Web: [https://golddaegeon-health-guide-studio-web.vercel.app](https://golddaegeon-health-guide-studio-web.vercel.app)
+- API Health: [https://golddaegeon-health-guide-studio-api.vercel.app/api/health](https://golddaegeon-health-guide-studio-api.vercel.app/api/health)
+- Repository: [https://github.com/iris112-sung/golddaegeon-health-guide-studio](https://github.com/iris112-sung/golddaegeon-health-guide-studio)
+
+## Tech Stack
+
+| Layer | Stack |
+| --- | --- |
+| Frontend | Next.js App Router, React 19, TypeScript, Tailwind CSS, lucide-react |
+| Backend | Next.js Route Handlers, TypeScript, Zod |
+| Text AI | zrok 공개 Qwen3 4B 계열 로컬 LLM API |
+| Image AI | zrok 공개 ComfyUI API, SDXL checkpoint |
+| TTS AI | zrok 공개 Orpheus 3B Korean TTS API |
+| Video | FFmpeg, ASS/SRT captions |
+| Deploy | Vercel Web, Vercel API, GitHub |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  User["User<br/>음식 이름 또는 아이디어"] --> Web["Next.js Web<br/>apps/web"]
+  Web --> API["Next.js API<br/>apps/api"]
+
+  API --> Text["zrok Text API<br/>Qwen3 local-qwen-4b"]
+  API --> Image["zrok ComfyUI API<br/>SDXL txt2img"]
+  API --> TTS["zrok TTS API<br/>Orpheus 3B Korean"]
+  API --> Video["FFmpeg<br/>image + audio + captions"]
+
+  Text --> Script["Topic & Script JSON"]
+  Image --> SceneImages["Scene Images"]
+  TTS --> Voice["Voiceover WAV"]
+  Script --> Video
+  SceneImages --> Video
+  Voice --> Video
+
+  Video --> Output["Generated MP4<br/>SRT / ASS / Audio"]
+  Output --> Web
+```
+
+## Workflow
+
+1. 사용자가 음식 이름 또는 아이디어를 입력합니다.
+2. API가 zrok 텍스트 모델에 주제 후보 생성을 요청합니다.
+3. 선택된 주제로 숏츠 대본과 씬 구성을 생성합니다.
+4. 각 씬의 `imagePrompt`를 ComfyUI `/prompt`에 등록합니다.
+5. `/history/{prompt_id}`를 polling하고 `/view`로 이미지를 가져옵니다.
+6. 씬 대사를 Orpheus TTS `/tts`에 전달하고 `/audio/{filename}.wav`를 가져옵니다.
+7. FFmpeg가 이미지, 오디오, 자막을 합성해 MP4를 생성합니다.
+
+## Project Structure
+
+```text
+.
+├── apps
+│   ├── api
+│   │   └── src
+│   │       ├── app/api
+│   │       └── lib/ai
+│   └── web
+│       └── src
+│           ├── app
+│           └── lib
+├── packages
+│   └── shared
+└── README.md
+```
+
+## Environment
+
+백엔드 환경변수는 `apps/api/.env.local`에 둡니다.
 
 ```env
 OPENAI_API_KEY=
+
 TEXT_AI_PROVIDER=zrok
 ZROK_AI_BASE_URL=https://ym1mvbhf9e0w.shares.zrok.io
 ZROK_TEXT_MODEL=local-qwen-4b
 ZROK_REQUEST_TIMEOUT_MS=30000
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_TEXT_MODEL=qwen3:4b
-OLLAMA_REQUEST_TIMEOUT_MS=180000
-OPENAI_TEXT_MODEL=gpt-5.4-mini
+
 IMAGE_PROVIDER=local
 LOCAL_IMAGE_API=comfyui
 LOCAL_IMAGE_BASE_URL=https://m5a1acjjn9hw.shares.zrok.io
@@ -29,27 +108,21 @@ LOCAL_IMAGE_MODEL=
 LOCAL_IMAGE_SIZE=256x256
 LOCAL_IMAGE_SEED=42
 LOCAL_IMAGE_CFG_SCALE=7.5
-LOCAL_IMAGE_TEMPERATURE=1.0
 LOCAL_IMAGE_STEPS=20
 LOCAL_IMAGE_SAMPLER=euler
 LOCAL_IMAGE_SCHEDULER=normal
-LOCAL_IMAGE_NEGATIVE_PROMPT=text, watermark, logo, blurry, low quality, distorted hands, extra fingers
 LOCAL_IMAGE_TIMEOUT_MS=180000
 IMAGE_CONCURRENCY=1
-OPENAI_IMAGE_MODEL=gpt-image-1.5
-OPENAI_IMAGE_QUALITY=low
-OPENAI_IMAGE_CONCURRENCY=4
+
 TTS_PROVIDER=local
-LOCAL_TTS_BASE_URL=https://ym1mvbhf9e0w.shares.zrok.io
-LOCAL_TTS_VOICE=Microsoft Heami Desktop
+LOCAL_TTS_BASE_URL=https://w3mzn1l1ted0.shares.zrok.io
+LOCAL_TTS_VOICE=유나
 LOCAL_TTS_LANGUAGE=ko-KR
 LOCAL_TTS_RATE=1
 LOCAL_TTS_VOLUME=100
-LOCAL_TTS_TIMEOUT_MS=60000
+LOCAL_TTS_TIMEOUT_MS=50000
 TTS_CONCURRENCY=1
-OPENAI_TTS_MODEL=gpt-4o-mini-tts
-OPENAI_TTS_VOICE=verse
-OPENAI_TTS_CONCURRENCY=3
+
 VIDEO_SEGMENT_CONCURRENCY=2
 VIDEO_WIDTH=720
 VIDEO_HEIGHT=1280
@@ -58,60 +131,78 @@ USE_MOCK_AI=false
 WEB_ORIGIN=http://localhost:3000
 ```
 
-텍스트 생성은 기본적으로 zrok 공유 URL `https://ym1mvbhf9e0w.shares.zrok.io`의 `local-qwen-4b` 모델을 사용합니다. 로컬 Ollama로 되돌리고 싶으면 `TEXT_AI_PROVIDER=ollama`로 바꾸면 됩니다.
-zrok 텍스트 endpoint가 60초 안에 응답하지 않으면 gateway timeout이 날 수 있으므로 모델 서버 상태와 Qwen `/no_think` 설정을 확인하세요.
-이미지 생성은 기본적으로 zrok 공유 URL `https://m5a1acjjn9hw.shares.zrok.io`의 ComfyUI API를 사용합니다. API는 `/prompt`에 txt2img workflow를 등록하고, `/history/{prompt_id}`를 polling한 뒤, `/view`로 결과 이미지를 가져옵니다. `LOCAL_IMAGE_MODEL`이 비어 있으면 `/models/checkpoints`의 첫 번째 checkpoint를 자동 선택합니다. OpenAI 이미지 모델로 되돌리고 싶으면 `IMAGE_PROVIDER=openai`로 바꾸면 됩니다.
-TTS는 기본적으로 zrok 공유 URL `https://ym1mvbhf9e0w.shares.zrok.io/tts`의 Windows System.Speech `Microsoft Heami Desktop` 음성을 사용합니다. OpenAI TTS로 되돌리고 싶으면 `TTS_PROVIDER=openai`로 바꾸면 됩니다.
-
 프론트엔드 환경변수는 `apps/web/.env.local`에 둡니다.
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 ```
 
-API 키 없이 화면 흐름만 테스트하려면 `USE_MOCK_AI=true`로 실행할 수 있습니다. 이미지 생성이 느리면 `IMAGE_CONCURRENCY`를 `1`에서 `5` 사이로 조절하세요. 영상 합성이 느리면 `TTS_CONCURRENCY`와 `VIDEO_SEGMENT_CONCURRENCY`를 조절할 수 있고, 기본 영상 출력은 속도를 위해 `720x1280`/`24fps`입니다.
-
-## 실행
+## How to Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-로컬에서 zrok 공유 서버를 직접 띄울 때는 Windows PowerShell에서 실행합니다.
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\local-llm\Start-LocalLLM.ps1
-.\local-llm\Start-LocalLLMApi.ps1 -HostAddress 0.0.0.0 -Port 8088
-```
-
-이미지 API 서버는 zrok 공유 URL 또는 로컬 ComfyUI `http://127.0.0.1:8188`에서 실행될 수 있습니다.
-
-```text
-POST /prompt
-GET  /history/{prompt_id}
-GET  /view
-```
-
-- 웹: `http://localhost:3000`
+- Web: `http://localhost:3000`
 - API: `http://localhost:3001`
 
-## 주요 API
+배포 환경에서는 Web과 API가 각각 Vercel 프로젝트로 분리되어 있으며, Web은 `NEXT_PUBLIC_API_BASE_URL`로 배포 API를 바라봅니다.
 
-- `POST /api/topics`: zrok 텍스트 API로 음식/아이디어 기반 숏츠 주제 후보 5개 생성
-- `POST /api/script`: zrok 텍스트 API로 선택한 주제 기반 30~60초 숏츠 스크립트 생성
-- `POST /api/images`: zrok ComfyUI 이미지 API로 씬별 캐릭터 이미지 생성 후 `apps/api/public/generated/{jobId}`에 저장
-- `POST /api/video`: 씬별 이미지, 대사, 자막을 zrok TTS 오디오와 MP4 숏츠 영상으로 합성
+## API
 
-## 문제 해결
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | API 상태 확인 |
+| `POST` | `/api/topics` | 음식/아이디어 기반 주제 후보 생성 |
+| `POST` | `/api/script` | 선택 주제 기반 숏츠 대본 생성 |
+| `POST` | `/api/images` | ComfyUI 기반 씬 이미지 생성 |
+| `POST` | `/api/video` | TTS, 자막, 이미지 기반 MP4 합성 |
+| `GET` | `/api/generated/{jobId}/{filename}` | 생성 파일 조회 |
 
-- `429 You exceeded your current quota`: OpenAI API 계정의 크레딧, 결제수단, 또는 월 사용 한도를 확인해야 합니다. 코드 문제가 아니라 OpenAI Billing/Usage 제한입니다. 개발이나 시연 흐름만 확인하려면 `USE_MOCK_AI=true`로 전환하면 외부 API 호출 없이 mock 응답으로 테스트할 수 있습니다.
-- `zrok 텍스트 요청 실패 (504)`: `https://ym1mvbhf9e0w.shares.zrok.io/health`가 열리는지, `local-qwen-4b`가 60초 안에 응답하는지 확인하세요.
-- `ComfyUI checkpoint 모델을 찾지 못했습니다`: ComfyUI의 `models/checkpoints` 폴더에 checkpoint를 추가하거나 `LOCAL_IMAGE_MODEL`을 실제 checkpoint 파일명으로 설정하세요.
-- `로컬 이미지 서버에 연결하지 못했습니다`: `LOCAL_IMAGE_BASE_URL`의 ComfyUI `/prompt`, `/history/{prompt_id}`, `/view` API가 열리는지 확인하세요.
-- `로컬 TTS 서버에 연결하지 못했습니다`: `LOCAL_TTS_BASE_URL`의 `/health`, `/tts/voices`가 열리는지 확인하세요. 이 프로젝트는 TTS 생성에는 `/tts`와 `/audio/{filename}.wav`만 사용합니다.
+## Model Endpoints
 
-## MVP 범위
+| Model Role | Base URL | Main Endpoints |
+| --- | --- | --- |
+| Text | `https://ym1mvbhf9e0w.shares.zrok.io` | `/health`, `/v1/chat/completions` |
+| Image | `https://m5a1acjjn9hw.shares.zrok.io` | `/prompt`, `/history/{prompt_id}`, `/view` |
+| TTS | `https://w3mzn1l1ted0.shares.zrok.io` | `/health`, `/tts/voices`, `/tts`, `/audio/{filename}.wav` |
 
-로그인, 결제, DB는 제외했습니다. 생성 파일은 로컬에서는 `apps/api/public/generated`, Vercel에서는 임시 런타임 저장소에 저장됩니다. 운영용 장기 보관은 S3, Supabase Storage, Vercel Blob 같은 영구 스토리지로 바꾸기 쉽게 저장 로직을 분리했습니다.
+## Demo Scenario
+
+```text
+입력: 김치찌개
+
+1. 주제 후보 생성
+2. "김치찌개 건강하게 먹는 법" 선택
+3. 4씬 대본 생성
+4. 씬별 음식 캐릭터 이미지 생성
+5. 한국어 TTS 음성 생성
+6. 자막이 포함된 MP4 숏츠 생성
+```
+
+## Troubleshooting
+
+- 이미지 생성이 실패하면 ComfyUI `/models/checkpoints`에 checkpoint가 있는지 확인합니다.
+- TTS 생성이 느리거나 실패하면 `/tts/voices`의 기본 음성명과 `/tts` 응답 시간을 확인합니다.
+- zrok URL이 바뀌면 Vercel API 프로젝트의 `LOCAL_IMAGE_BASE_URL`, `LOCAL_TTS_BASE_URL`, `ZROK_AI_BASE_URL`을 같이 갱신해야 합니다.
+- Vercel 함수 타임아웃에 걸리면 이미지/TTS concurrency를 낮추고, 영상 해상도와 FPS를 줄입니다.
+- OpenAI quota 에러가 나면 현재 설정이 `openai` provider로 바뀌었는지 확인합니다.
+
+## Retrospective
+
+### 잘 된 점
+
+- 프론트엔드와 백엔드를 분리해 모델 서버 교체가 쉬운 구조를 만들었습니다.
+- zrok 기반 로컬 AI 서버를 Vercel API와 연결해 외부 API 의존도를 낮췄습니다.
+- 이미지, TTS, 영상 합성 병목을 각각 분리해 디버깅할 수 있게 했습니다.
+
+### 개선할 점
+
+- 생성 파일은 현재 Vercel 런타임 임시 저장소를 사용하므로 장기 보관용 스토리지가 필요합니다.
+- TTS 품질 개선을 위해 대본용 `dialogue`와 발화용 `ttsText`를 분리하는 것이 좋습니다.
+- ComfyUI workflow를 환경변수 또는 JSON 파일로 주입하면 모델별 튜닝이 더 쉬워집니다.
+
+## License
+
+Private MVP project.
