@@ -72,23 +72,22 @@ async function createSceneImage(scene: SceneScript) {
 }
 
 function buildSceneImagePrompt(scene: SceneScript) {
-  const foodSubject = cleanPromptText(scene.character || scene.sceneTitle || "food");
-  const sceneContext = cleanPromptText([scene.sceneTitle, scene.visualDirection, scene.nutritionPoint].join(", "));
+  const foodReference = cleanPromptText(scene.imagePrompt || scene.character || scene.sceneTitle || "food");
 
   return [
     "Create one clean vertical Korean shorts cartoon sticker illustration.",
-    `Main subject: a cute ${foodSubject} food mascot. The mascot is the actual food item itself, not a person.`,
+    `Food reference only: ${foodReference}.`,
+    "Main subject: a cute food mascot. The mascot is the actual food item itself, not a person.",
     "The food item has only a simple face directly on the food surface: eyes, eyebrows, mouth, and cheek blush are allowed.",
     "The food may use its facial expression, open mouth, tilt, bounce pose, steam, sparkle, sauce, ingredients, and portion shape to feel like it is introducing itself.",
     "Keep the body shape faithful to the food: bowl stays a bowl, noodle stays noodles, tomato stays tomato, carrot stays carrot.",
     "Use a plain bright background with no panels, no speech bubbles, no labels, no diagrams, no logos, no UI, no captions.",
-    "Absolutely no readable or unreadable text anywhere, no fake letters, no Korean glyphs, no numbers, no watermark.",
+    "Absolutely no typography anywhere: no readable text, no unreadable text, no fake letters, no Korean glyphs, no numbers, no handwriting, no watermark.",
     "No human head, no human skin, no hair, no clothes, no torso, no hands, no arms, no legs, no feet, no thumbs.",
     "Do not add a human presenter or a person-shaped body holding the food.",
     "Do not add balance scales, chart icons, nutrition labels, word balloons, or text-like marks.",
-    "Composition: centered food mascot, full subject visible, vertical 9:16 frame, clean bottom 25 percent reserved for subtitles.",
+    "Composition: centered food mascot, full subject visible, vertical 9:16 frame, lower edge should be plain empty background with no marks.",
     "Style: cute flat 2D sticker mascot, thick clean outline, bright appetizing colors, simple shapes, polished mobile thumbnail.",
-    `Scene context for mood only: ${sceneContext}.`,
     "Follow the constraints above even if the scene context suggests people, hands, signs, icons, or text."
   ].join(" ");
 }
@@ -112,7 +111,12 @@ async function compressSceneImage(image: Buffer, sceneIndex: number) {
     "-i",
     inputPath,
     "-vf",
-    "scale=540:960:force_original_aspect_ratio=increase,crop=540:960,setsar=1",
+    [
+      "scale=540:960:force_original_aspect_ratio=increase",
+      "crop=540:960",
+      "setsar=1",
+      "drawbox=x=0:y=ih*0.84:w=iw:h=ih*0.16:color=white:t=fill"
+    ].join(","),
     "-frames:v",
     "1",
     "-q:v",
